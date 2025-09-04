@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QR Wrongbook — Focus Mode</title>
+  <meta name="description" content="A single-file wrong-question notebook for Quant Research prep. Focus Mode for deep practice. Local-first, no backend.">
+  <style>
+    :root{
+      /* Light */
+      --bg-light:#fdfdfd; --card-light:#ffffff; --muted-light:#f6f7f9; --muted-2-light:#eef1f4;
+      --text-light:#0f172a; --text-dim-light:#475569; --border-light:#dbe2ea; --shadow-light: rgba(0,0,0,.08);
+      /* Dark */
+      --bg-dark:#0a0f1f; --card-dark:#0f1723; --muted-dark:#0b1320; --muted-2-dark:#09111b;
+      --text-dark:#dbeafe; --text-dim-dark:#94a3b8; --border-dark:#1f2a37; --shadow-dark: rgba(0,0,0,.5);
+      /* Green (eye-care) */
+      --bg-green:#0b1c12; --card-green:#11291a; --muted-green:#0e2317; --muted-2-green:#0c1d13;
+      --text-green:#d8f3dc; --text-dim-green:#95d5b2; --border-green:#1b4332; --shadow-green: rgba(0,0,0,.5);
+      /* Accents */
+      --brand:#68d7ff; --accent:#7aa2f7; --accent-2:#4fd1c5; --danger:#ef6d6d; --ok:#5bd37d; --warn:#f5d06f;
+    }
+    body.light{--bg:var(--bg-light);--card:var(--card-light);--muted:var(--muted-light);--muted-2:var(--muted-2-light);--text:var(--text-light);--text-dim:var(--text-dim-light);--border:var(--border-light);--shadow:var(--shadow-light)}
+    body.dark{--bg:var(--bg-dark);--card:var(--card-dark);--muted:var(--muted-dark);--muted-2:var(--muted-2-dark);--text:var(--text-dark);--text-dim:var(--text-dim-dark);--border:var(--border-dark);--shadow:var(--shadow-dark)}
+    body.green{--bg:var(--bg-green);--card:var(--card-green);--muted:var(--muted-green);--muted-2:var(--muted-2-green);--text:var(--text-green);--text-dim:var(--text-dim-green);--border:var(--border-green);--shadow:var(--shadow-green)}
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;color:var(--text);background:var(--bg);font:16px/1.55 ui-sans-serif, system-ui;transition:background .25s,color .25s}
+    a{color:var(--accent);text-decoration:none}
+
+    header{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.08);backdrop-filter:saturate(140%) blur(10px);border-bottom:1px solid var(--border)}
+    .bar{max-width:1120px;margin:0 auto;padding:.75rem 1rem;display:flex;gap:.75rem;align-items:center;justify-content:space-between}
+    .brand{display:flex;gap:.5rem;align-items:center;font-weight:800}
+    .orb{width:10px;height:10px;border-radius:50%;background:var(--brand);box-shadow:0 0 16px var(--brand)}
+    .stack{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .btn{border:1px solid var(--border);background:linear-gradient(180deg,var(--card),var(--muted));color:var(--text);padding:.5rem .8rem;border-radius:.65rem;cursor:pointer;box-shadow:0 2px 0 var(--shadow)}
+    .btn.ghost{background:transparent}
+    .btn.danger{border-color:#3a2226;color:#ffd9d9;background:linear-gradient(180deg,#251015,#33151b)}
+    select.btn{padding:.45rem .7rem}
+
+    .container{max-width:1120px;margin:0 auto;padding:1rem}
+    .controls{display:grid;grid-template-columns:1fr;gap:.75rem;margin:1rem 0}
+    @media(min-width:840px){.controls{grid-template-columns: 1fr 1fr 1fr auto}}
+    .field{background:var(--card);border:1px solid var(--border);border-radius:.75rem;padding:.5rem .75rem;display:flex;gap:.5rem;align-items:center}
+    input[type="text"], select{width:100%;background:transparent;border:none;outline:none;color:var(--text)}
+    .chips{display:flex;flex-wrap:wrap;gap:.4rem}
+    .chip{padding:.25rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.8rem;background:var(--muted)}
+
+    .grid{display:grid;grid-template-columns:1fr;gap:.9rem}
+    @media(min-width:720px){.grid{grid-template-columns: repeat(2,1fr)}}
+    @media(min-width:1040px){.grid{grid-template-columns: repeat(3,1fr)}}
+    .card{background:linear-gradient(180deg,var(--card),var(--muted-2));border:1px solid var(--border);border-radius:1rem;overflow:hidden;box-shadow:0 6px 20px var(--shadow)}
+    .card .top{padding:.9rem .95rem;border-bottom:1px solid var(--border);display:flex;gap:.6rem;align-items:center;justify-content:space-between}
+    .title-link{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+    .badge{font-size:.72rem;padding:.25rem .5rem;border-radius:.5rem;border:1px solid var(--border);background:var(--muted)}
+    .content{padding:.9rem .95rem}
+    .thumbs{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+    .thumbs img{height:68px;width:100px;object-fit:cover;border-radius:.4rem;border:1px solid var(--border)}
+    .actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+
+    dialog{border:none;border-radius:1rem;max-width:820px;width:95vw;background:linear-gradient(180deg,var(--card),var(--muted));color:var(--text);padding:0}
+    dialog::backdrop{background:rgba(0,0,0,.6)}
+    .dlg-head{padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .dlg-body{padding:1rem;display:grid;gap:.75rem}
+    .dlg-grid{display:grid;gap:.6rem}
+    @media(min-width:820px){.dlg-grid{grid-template-columns:1fr 1fr}}
+    textarea{width:100%;min-height:120px;background:var(--muted);color:var(--text);border:1px solid var(--border);border-radius:.75rem;padding:.6rem;resize:vertical}
+    .dropzone{border:1px dashed #2b3a50;border-radius:.75rem;padding:1rem;text-align:center;background:var(--muted)}
+    .previews{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+    .previews img{height:80px;width:118px;object-fit:cover;border-radius:.4rem;border:1px solid var(--border)}
+
+    /* Focus mode */
+    .focus-wrap{max-width:900px;margin:16px auto;padding:0 16px}
+    .focus-card{background:var(--card);border:1px solid var(--border);border-radius:1rem;box-shadow:0 8px 24px var(--shadow);overflow:hidden}
+    .focus-head{display:flex;justify-content:space-between;align-items:center;padding:1rem;border-bottom:1px solid var(--border)}
+    .focus-body{padding:1rem}
+    .fold{margin:.8rem 0;border:1px dashed var(--border);border-radius:.75rem}
+    .fold>summary{cursor:pointer;list-style:none;padding:.6rem .8rem;background:var(--muted);border-bottom:1px dashed var(--border);font-weight:600}
+    .fold[open]>summary{background:var(--muted-2)}
+    .fold .inner{padding:.8rem}
+    .meta{display:flex;gap:.4rem;flex-wrap:wrap}
+
+    .timer{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
+    .timer .clock{font-variant-numeric:tabular-nums;font-weight:700}
+    .history{margin-top:.8rem;font-size:.9rem;color:var(--text-dim)}
+    .comment{background:var(--muted);border:1px solid var(--border);border-radius:.6rem;padding:.6rem;margin:.4rem 0}
+
+    .hide{display:none}
+    footer{opacity:.7;margin:2rem 0;text-align:center;font-size:.85rem}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="orb"></span><span>QR Wrongbook</span></div>
+      <div class="stack">
+        <button class="btn" id="btnAdd">Add Problem</button>
+        <button class="btn" id="btnExport">Export</button>
+        <button class="btn" id="btnImport">Import</button>
+        <select class="btn" id="btnTheme" title="Theme">
+          <option value="light">☀️ Light</option>
+          <option value="dark">🌙 Dark</option>
+          <option value="green">🌿 Green</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <div id="view-grid">
+    <div class="container">
+      <div class="controls">
+        <div class="field">🔎 <input id="q" type="text" placeholder="Search… (title, question, notes)"></div>
+        <div class="field">🧭
+          <select id="fCategory" multiple>
+            <option>Code</option><option>Math</option><option>Behavior question</option><option>Machine Learning</option>
+          </select>
+        </div>
+        <div class="field">🎯
+          <select id="fDifficulty" multiple>
+            <option>Easy</option><option>Medium</option><option>Hard</option><option>Deadly</option>
+          </select>
+        </div>
+        <div class="field">📈
+          <select id="fMastery" multiple>
+            <option>Not at all</option><option>A bit</option><option>Slightly unsure</option><option>Calculation error</option><option>Mastered</option>
+          </select>
+        </div>
+      </div>
+      <div class="stack" style="justify-content:space-between;margin:.25rem 0 1rem">
+        <div class="chips" id="stats"></div>
+        <div class="chips">
+          <span class="chip">Sort:
+            <select id="sort">
+              <option value="new">Newest</option>
+              <option value="old">Oldest</option>
+              <option value="diff">Difficulty</option>
+              <option value="mastery">Mastery</option>
+              <option value="cat">Category</option>
+            </select>
+          </span>
+          <button class="btn ghost" id="btnClearFilters">Reset filters</button>
+        </div>
+      </div>
+      <div class="grid" id="list"></div>
+    </div>
+  </div>
+
+  <div id="view-focus" class="hide">
+    <div class="focus-wrap">
+      <div class="focus-card">
+        <div class="focus-head">
+          <div>
+            <div id="fTitle" style="font-size:1.15rem;font-weight:800"></div>
+            <div class="meta" id="fMeta"></div>
+          </div>
+          <div class="stack">
+            <button class="btn" id="btnBack">← Back</button>
+            <button class="btn" id="btnFocusEdit">Edit</button>
+          </div>
+        </div>
+        <div class="focus-body">
+          <div id="fQuestion" style="white-space:pre-wrap"></div>
+          <div class="thumbs" id="fThumbs"></div>
+
+          <details class="fold" id="foldHint"><summary>Hint</summary>
+            <div class="inner" id="fHint" style="white-space:pre-wrap"></div>
+          </details>
+          <details class="fold" id="foldSolution"><summary>Solution</summary>
+            <div class="inner" id="fSolution" style="white-space:pre-wrap"></div>
+          </details>
+
+          <div class="fold">
+            <summary>Comments</summary>
+            <div class="inner">
+              <div id="fComments"></div>
+              <div class="stack" style="margin-top:.5rem">
+                <input id="commentInput" class="field" style="flex:1" placeholder="Add a comment…"/>
+                <button class="btn" id="btnAddComment">Add</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="fold">
+            <summary>Practice & Time</summary>
+            <div class="inner">
+              <div class="timer">
+                <span class="clock" id="clock">00:00</span>
+                <button class="btn" id="btnStartStop">Start</button>
+                <button class="btn" id="btnReset">Reset</button>
+                <button class="btn" id="btnLog">Log session</button>
+              </div>
+              <div class="history" id="history"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog for create/edit -->
+  <dialog id="dlg">
+    <form method="dialog" id="problemForm">
+      <div class="dlg-head">
+        <strong id="dlgTitle">Add Problem</strong>
+        <button class="btn ghost" id="btnClose" value="close">✕</button>
+      </div>
+      <div class="dlg-body">
+        <div class="dlg-grid">
+          <div class="field"><input type="text" id="title" placeholder="Title" required></div>
+          <div class="field"><input type="text" id="source" placeholder="Source (link/book)"></div>
+        </div>
+        <label>Question</label>
+        <textarea id="question" placeholder="Paste the problem statement."></textarea>
+        <div class="dlg-grid">
+          <div class="field"><select id="category" required>
+            <option value="">Category…</option>
+            <option>Code</option><option>Math</option><option>Behavior question</option><option>Machine Learning</option>
+          </select></div>
+          <div class="field"><select id="difficulty" required>
+            <option value="">Difficulty…</option>
+            <option>Easy</option><option>Medium</option><option>Hard</option><option>Deadly</option>
+          </select></div>
+        </div>
+        <div class="dlg-grid">
+          <div class="field"><select id="mastery" required>
+            <option value="">Mastery…</option>
+            <option>Not at all</option><option>A bit</option><option>Slightly unsure</option><option>Calculation error</option><option>Mastered</option>
+          </select></div>
+          <div class="field"><input type="text" id="tags" placeholder="Optional tags (comma separated)"></div>
+        </div>
+        <label>Hint (optional)</label>
+        <textarea id="hint" placeholder="Key observation or first step"></textarea>
+        <label>Solution (optional)</label>
+        <textarea id="solution" placeholder="Clean final solution / proof / code idea"></textarea>
+
+        <div>
+          <div class="dropzone" id="dropzone"><strong>Drop screenshots here</strong> or click to upload.<br><span style="opacity:.8">PNG/JPG supported. Paste with Ctrl/Cmd+V.</span></div>
+          <input class="hide" type="file" id="images" accept="image/*" multiple>
+          <div class="previews" id="previews"></div>
+        </div>
+      </div>
+      <div class="dlg-foot" style="padding:1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="opacity:.8">Local-only (IndexedDB). Use Export for backup.</span>
+        <button class="btn" id="btnSave" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="importInput" class="hide" type="file" accept="application/json"/>
+
+  <footer>Built for deep focus. v1.2 — Focus Mode + timer + comments.</footer>
+
+<script>
+(function(){
+  const DIFF=["Easy","Medium","Hard","Deadly"];
+  const CATS=["Code","Math","Behavior question","Machine Learning"];
+  const MAST=["Not at all","A bit","Slightly unsure","Calculation error","Mastered"];
+
+  // Theme
+  const body=document.body; const selTheme=document.getElementById('btnTheme');
+  let savedTheme=localStorage.getItem('qr-theme')|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  body.className=savedTheme; selTheme.value=savedTheme;
+  selTheme.addEventListener('change',()=>{ body.className=selTheme.value; localStorage.setItem('qr-theme', selTheme.value); });
+
+  // DB
+  const DB_NAME='qr-wrongbook'; const STORE='problems'; let dbPromise=null;
+  function openDB(){ if(dbPromise) return dbPromise; dbPromise=new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=(e)=>{ const db=r.result; let os; if(!db.objectStoreNames.contains(STORE)){ os=db.createObjectStore(STORE,{keyPath:'id'}); } else { os=e.target.transaction.objectStore(STORE); } ['createdAt','category','difficulty','mastery'].forEach(idx=>{ if(!os.indexNames.contains(idx)) os.createIndex(idx, idx); }); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); return dbPromise; }
+  function tx(mode='readonly'){ return openDB().then(db=>db.transaction(STORE,mode).objectStore(STORE)); }
+  function all(){ return tx().then(os=>new Promise((res,rej)=>{ const rq=os.getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); })); }
+  function put(item){ return tx('readwrite').then(os=>new Promise((res,rej)=>{ const rq=os.put(item); rq.onsuccess=()=>res(item); rq.onerror=()=>rej(rq.error); })); }
+  function remove(id){ return tx('readwrite').then(os=>new Promise((res,rej)=>{ const rq=os.delete(id); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error); })); }
+
+  // State
+  let items=[]; let editingId=null; let focusId=null; let timer=null; let elapsed=0; let ticking=false; let tickStart=0;
+  const filters={ q:'', cats:new Set(JSON.parse(localStorage.getItem('f.cats')||'[]')), diffs:new Set(JSON.parse(localStorage.getItem('f.diffs')||'[]')), masts:new Set(JSON.parse(localStorage.getItem('f.masts')||'[]')), sort:localStorage.getItem('f.sort')||'new' };
+
+  // Refs
+  const list=$('#list'), stats=$('#stats'), q=$('#q'), fCategory=$('#fCategory'), fDifficulty=$('#fDifficulty'), fMastery=$('#fMastery'), sortSel=$('#sort');
+  const viewGrid=$('#view-grid'), viewFocus=$('#view-focus');
+  const fTitle=$('#fTitle'), fMeta=$('#fMeta'), fQuestion=$('#fQuestion'), fThumbs=$('#fThumbs');
+  const foldHint=$('#foldHint'), foldSolution=$('#foldSolution'); const fHint=$('#fHint'), fSolution=$('#fSolution');
+  const fComments=$('#fComments'), commentInput=$('#commentInput');
+  const clock=$('#clock'), btnStartStop=$('#btnStartStop'), btnReset=$('#btnReset'), btnLog=$('#btnLog'), historyBox=$('#history');
+
+  // Dialog refs
+  const dlg=$('#dlg'); const problemForm=$('#problemForm'); const dlgTitle=$('#dlgTitle');
+  const iTitle=$('#title'), iSource=$('#source'), iQuestion=$('#question'), iNotes=$('#notes');
+  const iCategory=$('#category'), iDifficulty=$('#difficulty'), iMastery=$('#mastery'), iTags=$('#tags');
+  const iHint=$('#hint'), iSolution=$('#solution');
+  const dropzone=$('#dropzone'), images=$('#images'), previews=$('#previews');
+
+  // Utils
+  function $(s){return document.querySelector(s)}
+  function $$(s){return Array.from(document.querySelectorAll(s))}
+  const genId=()=> (crypto.randomUUID?crypto.randomUUID():'id_'+Date.now()+Math.random().toString(36).slice(2));
+  const fmt=ts=> new Date(ts).toLocaleString();
+  const fmtMin=s=>{ const m=Math.floor(s/60), ss=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
+  const escapeHTML=s=>(s||'').replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+
+  // Init
+  bindUI(); load(); routeFromHash();
+  window.addEventListener('hashchange', routeFromHash);
+
+  async function load(){ items=await all(); render(); }
+
+  function bindUI(){
+    $('#btnAdd').addEventListener('click',()=>openDialog());
+    $('#btnExport').addEventListener('click', exportJSON);
+    $('#btnImport').addEventListener('click', ()=>$('#importInput').click());
+    $('#importInput').addEventListener('change', importJSON);
+    $('#btnClearFilters').addEventListener('click', ()=>{ filters.cats.clear(); filters.diffs.clear(); filters.masts.clear(); saveFilters(); reflectFilters(); render(); });
+
+    q.addEventListener('input', ()=>{ filters.q=q.value.trim().toLowerCase(); render(); });
+    sortSel.addEventListener('change', ()=>{ filters.sort=sortSel.value; localStorage.setItem('f.sort', filters.sort); render(); });
+    ;[fCategory,fDifficulty,fMastery].forEach(sel=> sel.addEventListener('change', ()=>{ const which = sel===fCategory? 'cats' : sel===fDifficulty? 'diffs' : 'masts'; filters[which]= new Set(Array.from(sel.selectedOptions).map(o=>o.value)); saveFilters(); render(); }));
+
+    // dialog save
+    problemForm.addEventListener('submit', saveRecord);
+
+    // dropzone
+    dropzone.addEventListener('click',()=>images.click());
+    ;['dragenter','dragover'].forEach(ev=> dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+    ;['dragleave','drop'].forEach(ev=> dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+    dropzone.addEventListener('drop', e=>{ const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('image/')); if(files.length) readImages(files); });
+    images.addEventListener('change', ()=> readImages(Array.from(images.files||[])));
+    dlg.addEventListener('paste', e=>{ const it=Array.from(e.clipboardData?.items||[]).filter(i=>i.type&&i.type.startsWith('image/')).map(i=>i.getAsFile()); if(it.length) readImages(it); });
+
+    // focus nav
+    $('#btnBack').addEventListener('click', ()=>{ location.hash=''; });
+    $('#btnFocusEdit').addEventListener('click', ()=>{ const it=items.find(x=>x.id===focusId); if(it) openDialog(it); });
+
+    // timer
+    btnStartStop.addEventListener('click', toggleTimer);
+    btnReset.addEventListener('click', ()=>{ stopTimer(false); elapsed=0; renderClock(); });
+    btnLog.addEventListener('click', ()=>{ logSession(true); });
+  }
+
+  function reflectFilters(){ for(const [sel,set] of [[fCategory,filters.cats],[fDifficulty,filters.diffs],[fMastery,filters.masts]]){ Array.from(sel.options).forEach(o=> o.selected=set.has(o.value)); } sortSel.value=filters.sort; }
+  function saveFilters(){ localStorage.setItem('f.cats', JSON.stringify(Array.from(filters.cats))); localStorage.setItem('f.diffs', JSON.stringify(Array.from(filters.diffs))); localStorage.setItem('f.masts', JSON.stringify(Array.from(filters.masts))); }
+  function clearForm(){ problemForm.reset(); previews.innerHTML=''; iNotes && (iNotes.value=''); iHint.value=''; iSolution.value=''; }
+
+  function openDialog(edit=null){ clearForm(); editingId=null; if(edit){ editingId=edit.id; dlgTitle.textContent='Edit Problem'; iTitle.value=edit.title||''; iSource.value=edit.source||''; iQuestion.value=edit.question||''; iCategory.value=edit.category||''; iDifficulty.value=edit.difficulty||''; iMastery.value=edit.mastery||''; iTags.value=(edit.tags||[]).join(', '); iHint.value=edit.hint||''; iSolution.value=edit.solution||''; (edit.images||[]).forEach(img=> addPreview(img.dataUrl,img.name)); } else { dlgTitle.textContent='Add Problem'; }
+    dlg.showModal(); setTimeout(()=> iTitle.focus(), 40); }
+
+  function readImages(files){ files.forEach(f=>{ const fr=new FileReader(); fr.onload=()=> addPreview(fr.result,f.name); fr.readAsDataURL(f); }); }
+  function addPreview(dataUrl,name){ const img=new Image(); img.src=dataUrl; img.alt=name||'image'; previews.appendChild(img); }
+
+  async function saveRecord(e){ e.preventDefault(); const imgs=Array.from(previews.querySelectorAll('img')).map(img=>({name:img.alt||'image', dataUrl:img.src})); const now=Date.now(); const old= editingId ? items.find(x=>x.id===editingId) : null; const rec={ id: editingId||genId(), createdAt: old? old.createdAt: now, updatedAt: now, title:iTitle.value.trim(), source:iSource.value.trim(), question:iQuestion.value.trim(), notes: (old?.notes)||'', category:iCategory.value, difficulty:iDifficulty.value, mastery:iMastery.value, tags:(iTags.value.split(',').map(s=>s.trim()).filter(Boolean)), images: imgs, hint: iHint.value.trim(), solution: iSolution.value.trim(), comments: old?.comments||[], sessions: old?.sessions||[] };
+    if(!rec.title||!rec.category||!rec.difficulty||!rec.mastery){ alert('Please fill required fields.'); return; }
+    await put(rec); editingId=null; dlg.close(); await load(); if(focusId===rec.id) showFocus(rec.id); }
+
+  function render(){ reflectFilters(); const arr=items.filter(x=>{ if(filters.q){ const blob=(x.title+' '+x.question+' '+(x.tags||[]).join(' ')).toLowerCase(); if(!blob.includes(filters.q)) return false; } if(filters.cats.size && !filters.cats.has(x.category)) return false; if(filters.diffs.size && !filters.diffs.has(x.difficulty)) return false; if(filters.masts.size && !filters.masts.has(x.mastery)) return false; return true; });
+    const sorters={ new:(a,b)=>b.createdAt-a.createdAt, old:(a,b)=>a.createdAt-b.createdAt, diff:(a,b)=>DIFF.indexOf(a.difficulty)-DIFF.indexOf(b.difficulty), mastery:(a,b)=>MAST.indexOf(a.mastery)-MAST.indexOf(b.mastery), cat:(a,b)=>CATS.indexOf(a.category)-CATS.indexOf(b.category) }; arr.sort(sorters[filters.sort]||sorters.new);
+    const s={ total:items.length, shown:arr.length, byCat:Object.fromEntries(CATS.map(c=>[c,0])), byDiff:Object.fromEntries(DIFF.map(d=>[d,0])), byMast:Object.fromEntries(MAST.map(m=>[m,0])) };
+    items.forEach(x=>{ s.byCat[x.category]++; s.byDiff[x.difficulty]++; s.byMast[x.mastery]++; });
+    stats.innerHTML = `<span class="chip">All: ${s.total}</span><span class="chip">Shown: ${s.shown}</span>` +
+      CATS.map(c=>`<span class="chip">${c}: ${s.byCat[c]||0}</span>`).join('') +
+      DIFF.map(d=>`<span class="chip">${d}: ${s.byDiff[d]||0}</span>`).join('') +
+      MAST.map(m=>`<span class=\"chip\">${m}: ${s.byMast[m]||0}</span>`).join('');
+    list.innerHTML= arr.map(cardHTML).join('');
+    // actions
+    $$('.js-open').forEach(a=> a.addEventListener('click',()=>{ location.hash='#focus/'+a.dataset.id; }));
+    $$('.js-edit').forEach(b=> b.addEventListener('click',()=>{ const id=b.dataset.id; const it=items.find(x=>x.id===id); openDialog(it); }));
+    $$('.js-delete').forEach(b=> b.addEventListener('click', async()=>{ const id=b.dataset.id; if(confirm('Delete this problem?')){ await remove(id); load(); }}));
+    $$('.js-mastered').forEach(b=> b.addEventListener('click', async()=>{ const id=b.dataset.id; const it=items.find(x=>x.id===id); it.mastery = it.mastery==='Mastered' ? 'Slightly unsure':'Mastered'; it.updatedAt=Date.now(); await put(it); load(); }));
+  }
+
+  function badge(cls,text){ return `<span class="badge ${cls}">${escapeHTML(text)}</span>`; }
+  function cardHTML(x){ const thumbs=(x.images||[]).slice(0,3).map(img=>`<img src="${img.dataUrl}" alt="thumb">`).join(''); const mastered=x.mastery==='Mastered'; return `
+    <article class="card" data-id="${x.id}">
+      <div class="top">
+        <div style="min-width:0">
+          <div class="title-link js-open" data-id="${x.id}" title="Open Focus">${escapeHTML(x.title||'(untitled)')}</div>
+          <div style="opacity:.75;font-size:.85rem">${new Date(x.createdAt).toLocaleDateString()} · ${escapeHTML(x.source||'')}</div>
+        </div>
+        <div class="chips">${badge('',x.difficulty)}${badge('',x.category)}${badge('',x.mastery)}</div>
+      </div>
+      <div class="content">
+        ${thumbs? `<div class="thumbs">${thumbs}</div>`:''}
+        <div class="actions">
+          <button class="btn js-open" data-id="${x.id}">Practice</button>
+          <button class="btn js-edit" data-id="${x.id}">Edit</button>
+          <button class="btn js-mastered" data-id="${x.id}">${mastered?'Unmark Mastered':'Mark Mastered'}</button>
+          <button class="btn danger js-delete" data-id="${x.id}">Delete</button>
+        </div>
+      </div>
+    </article>`; }
+
+  function routeFromHash(){ const h=location.hash; if(h.startsWith('#focus/')){ const id=h.split('/')[1]; showFocus(id); } else { showGrid(); } }
+  function showGrid(){ viewFocus.classList.add('hide'); viewGrid.classList.remove('hide'); stopTimer(false); }
+  function showFocus(id){ focusId=id; const it=items.find(x=>x.id===id); if(!it){ location.hash=''; return; }
+    viewGrid.classList.add('hide'); viewFocus.classList.remove('hide');
+    fTitle.textContent=it.title||''; fMeta.innerHTML=`${badge('',it.difficulty)}${badge('',it.category)}${badge('',it.mastery)} ${it.source? '· '+escapeHTML(it.source):''}`;
+    fQuestion.textContent=it.question||''; fThumbs.innerHTML=(it.images||[]).map(img=>`<img src="${img.dataUrl}" alt="img" style="height:90px;width:132px;border-radius:.4rem;border:1px solid var(--border);object-fit:cover">`).join('');
+    fHint.textContent=it.hint||''; fSolution.textContent=it.solution||'';
+    foldHint.open=false; foldSolution.open=false;
+    renderComments(it); renderHistory(it);
+    // reset timer state
+    stopTimer(false); elapsed=0; renderClock();
+  }
+
+  function renderComments(it){ const arr=it.comments||[]; fComments.innerHTML = arr.length? arr.map(c=>`<div class=comment><div style="opacity:.7;font-size:.8rem">${fmt(c.ts)}</div><div style="white-space:pre-wrap">${escapeHTML(c.text)}</div></div>`).join('') : '<div style="opacity:.7">No comments yet.</div>';
+    $('#btnAddComment').onclick = async ()=>{ const t=commentInput.value.trim(); if(!t) return; const now=Date.now(); const obj=items.find(x=>x.id===focusId); obj.comments = (obj.comments||[]).concat([{ts:now,text:t}]); obj.updatedAt=now; await put(obj); commentInput.value=''; renderComments(obj); }
+  }
+
+  function renderHistory(it){ const sess=it.sessions||[]; const total=Math.floor(sess.reduce((a,b)=>a+(b.durationSec||0),0)); const days=new Set(sess.map(s=> new Date(s.start).toISOString().slice(0,10)));
+    historyBox.innerHTML = sess.length? `Sessions: ${sess.length} · Total: ${fmtMin(total)} · Days practiced: ${days.size}<br>`+ sess.slice().reverse().slice(0,10).map(s=>`• ${new Date(s.start).toLocaleString()} — ${fmtMin(s.durationSec||0)}`).join('<br>') : 'No sessions logged yet.';
+  }
+
+  function renderClock(){ clock.textContent = fmtMin(elapsed); }
+  function toggleTimer(){ if(ticking){ stopTimer(true); } else { tickStart=Date.now(); ticking=true; btnStartStop.textContent='Pause'; timer=setInterval(()=>{ elapsed = Math.floor((Date.now()-tickStart)/1000); renderClock(); }, 250); } }
+  async function stopTimer(save){ if(timer){ clearInterval(timer); timer=null; }
+    if(ticking){ elapsed = Math.floor((Date.now()-tickStart)/1000); renderClock(); }
+    ticking=false; btnStartStop.textContent='Start'; if(save && focusId){ await logSession(false); }
+  }
+  async function logSession(ask){ if(focusId && elapsed>0){ const it=items.find(x=>x.id===focusId); const now=Date.now(); it.sessions = (it.sessions||[]).concat([{start: now - elapsed*1000, end: now, durationSec: elapsed}]); it.updatedAt=now; await put(it); renderHistory(it); if(ask){ alert('Session logged.'); } elapsed=0; renderClock(); } }
+
+  function exportJSON(){ all().then(arr=>{ const blob=new Blob([JSON.stringify({v:2,exportedAt:new Date().toISOString(),items:arr},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='qr-wrongbook-backup.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 4000); }); }
+  function importJSON(ev){ const file=ev.target.files[0]; if(!file) return; const fr=new FileReader(); fr.onload=async ()=>{ try{ const data=JSON.parse(fr.result); if(!Array.isArray(data.items)) throw new Error('Invalid file'); const now=Date.now(); for(const it of data.items){ const rec={...it}; if(!rec.id) rec.id=genId(); if(!rec.sessions) rec.sessions=[]; if(!rec.comments) rec.comments=[]; rec.createdAt = rec.createdAt || now; rec.updatedAt = now; await put(rec); } await load(); alert('Import done.'); }catch(err){ alert('Import failed: '+err.message); } finally { ev.target.value=''; } }; fr.readAsText(file); }
+
+})();
+</script>
+</body>
+</html>
