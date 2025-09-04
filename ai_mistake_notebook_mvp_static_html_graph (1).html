@@ -1,0 +1,619 @@
+<!--
+AI Mistake Notebook — MVP (Static HTML + Graph)
+Author: Claire (with ChatGPT)
+How to use today (free):
+1) Save this whole file as `index.html` on your computer.
+2) Double‑click to open in Chrome/Edge (no install needed).
+3) Paste a problem in the textarea, click “Analyze & Save”.
+4) Cards appear below + the knowledge graph updates.
+5) Data persists in your browser (localStorage). Export JSON anytime.
+
+Zero‑cost mode uses a small heuristic triager (no API keys). 
+Later you can switch to an LLM backend (Vercel/Node) with the optional server snippet at the end of this document.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Basic meta tags -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Mistake Notebook — MVP</title>
+  <!-- Tailwind via CDN for quick styling (dev‑only, fine for MVP/demo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cytoscape.js for knowledge‑graph visualization -->
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+  <!-- Lightweight UUID function (we'll implement a tiny one below for offline use) -->
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <!-- Page container -->
+  <div class="max-w-6xl mx-auto p-6 space-y-6">
+    <!-- Header bar -->
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">AI Mistake Notebook — MVP</h1>
+      <div class="text-sm text-slate-500">Local, offline, free — upgradeable to LLM</div>
+    </header>
+
+    <!-- Controls panel -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Left: Input form -->
+      <div class="lg:col-span-2 bg-white rounded-2xl shadow p-4 space-y-3">
+        <label for="problemInput" class="font-semibold">Problem (paste text, code, or math):</label>
+        <textarea id="problemInput" class="w-full h-40 border rounded-lg p-3 font-mono text-sm" placeholder="e.g., In Python, my loop using enumerate fails because I unpack 'value, index' instead of 'index, value'..."></textarea>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="block text-sm font-medium">Type (optional):</label>
+            <select id="typeSelect" class="border rounded-lg p-2 text-sm">
+              <option value="auto">Auto‑detect</option>
+              <option value="code">Code</option>
+              <option value="math">Math</option>
+              <option value="ml">ML</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">Use LLM (backend):</label>
+            <input id="useLlmToggle" type="checkbox" class="align-middle"> 
+            <span class="text-xs text-slate-500">(needs server; see README at bottom)</span>
+          </div>
+          <button id="analyzeBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Analyze & Save</button>
+          <button id="clearBtn" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300">Clear Input</button>
+        </div>
+      </div>
+
+      <!-- Right: Graph and export -->
+      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">Knowledge Graph</h2>
+          <div class="flex gap-2">
+            <button id="exportBtn" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Export JSON</button>
+            <button id="resetBtn" class="px-3 py-1.5 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700">Reset All</button>
+          </div>
+        </div>
+        <div id="graph" class="w-full h-64 border rounded-lg"></div>
+        <div class="text-xs text-slate-500">Node size = frequency. Color by type: code (blue), math (purple), ml (green).</div>
+      </div>
+    </section>
+
+    <!-- Filter/search -->
+    <section class="bg-white rounded-2xl shadow p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-sm font-medium">Filter by type:</label>
+          <select id="filterType" class="border rounded-lg p-2 text-sm">
+            <option value="all">All</option>
+            <option value="code">Code</option>
+            <option value="math">Math</option>
+            <option value="ml">ML</option>
+          </select>
+        </div>
+        <div class="grow">
+          <label class="block text-sm font-medium">Search (concept/text):</label>
+          <input id="searchInput" class="w-full border rounded-lg p-2 text-sm" placeholder="e.g., enumerate or eigenvalue" />
+        </div>
+        <button id="applyFilterBtn" class="px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-black">Apply</button>
+      </div>
+    </section>
+
+    <!-- Cards list -->
+    <section class="space-y-4" id="cards"></section>
+
+    <!-- Footer / README (server instructions) -->
+    <section class="bg-white rounded-2xl shadow p-4 space-y-2">
+      <h3 class="font-semibold text-lg">Upgrade to LLM backend (optional)</h3>
+      <p class="text-sm text-slate-700">If you want higher‑quality extraction, deploy a tiny server (Vercel/Node) exposing <code>/api/triage</code> that calls your preferred LLM (e.g., OpenAI). This keeps your API key private.</p>
+      <details class="text-sm">
+        <summary class="cursor-pointer font-medium">Show example Node (Express) server code</summary>
+        <pre class="whitespace-pre-wrap text-xs bg-slate-100 rounded p-3">// server.js (Example) — run with: `npm i express node-fetch dotenv` then `node server.js`
+// Uses OPENAI_API_KEY from .env; endpoint: POST /api/triage { raw_problem, type_hint }
+
+import express from 'express'
+import fetch from 'node-fetch'
+import dotenv from 'dotenv'
+dotenv.config()
+
+const app = express()
+app.use(express.json({ limit: '1mb' }))
+
+app.post('/api/triage', async (req, res) => {
+  try {
+    const { raw_problem, type_hint } = req.body
+
+    const prompt = `You are an exam mistake triager for ${type_hint || 'auto'}.
+Input problem:
+<<<\n${raw_problem}\n>>>
+Return strict JSON with fields: type, concepts, summary, explain, difficulty.`
+
+    // Minimal OpenAI call (Responses API style; adjust as needed)
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini', // low-cost, decent quality
+        messages: [
+          { role: 'system', content: 'Return only valid JSON. No prose.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2
+      })
+    })
+
+    const data = await r.json()
+    const text = data.choices?.[0]?.message?.content?.trim() || '{}'
+    // Try to parse JSON; if it fails, fallback to a minimal heuristic
+    let parsed
+    try { parsed = JSON.parse(text) } catch { parsed = heuristicTriage(raw_problem, type_hint) }
+    res.json(parsed)
+  } catch (e) {
+    console.error(e)
+    // Fallback to heuristic if API fails
+    res.json(heuristicTriage(req.body?.raw_problem || '', req.body?.type_hint || 'auto'))
+  }
+})
+
+// A copy of the browser heuristic for server-side fallback
+function heuristicTriage(raw, typeHint) {
+  // Keep this simple; same as client version but condensed
+  const txt = (raw || '').toLowerCase()
+  const type = typeHint !== 'auto' && typeHint ? typeHint : detectType(txt)
+  const concepts = extractConcepts(txt, type)
+  return {
+    type,
+    concepts,
+    summary: concepts.length ? `Focus on ${concepts[0]} and apply the correct procedure.` : 'Identify the core concept and apply the definition.',
+    explain: 'Review the definition, check boundary cases, and verify each step. Fix common pitfalls (indexing, sign, shape).',
+    difficulty: Math.min(1, 0.2 + concepts.length * 0.12)
+  }
+}
+
+function detectType(t) {
+  if (/\b(def|lambda|numpy|pandas|sklearn|indexerror|keyerror|for\s*\(|enumerate|list\s*comp)/.test(t)) return 'code'
+  if (/\b(eigen|matrix|gradient|integral|derivative|probability|log\s*loss|variance|mean|sigma|sum\b)/.test(t)) return 'math'
+  if (/\b(overfitting|regularization|cross[-\s]?entropy|auc|roc|svm|bayes|bias-variance)/.test(t)) return 'ml'
+  return 'code'
+}
+
+function extractConcepts(t, type) {
+  const dict = {
+    code: ['enumerate', 'list comprehension', 'zip', 'tuple unpack', 'indexing', 'off-by-one', 'time complexity', 'numpy broadcasting', 'pandas groupby', 'sklearn pipeline'],
+    math: ['eigenvalue', 'eigendecomposition', 'gradient', 'chain rule', 'log loss', 'variance', 'expectation', 'matrix inversion', 'convexity'],
+    ml: ['overfitting', 'regularization', 'cross entropy', 'auc', 'roc', 'bayes rule', 'bias-variance', 'precision', 'recall']
+  }
+  const base = dict[type] || dict.code
+  return base.filter(k => t.includes(k.split(' ')[0])).slice(0, 5)
+}
+
+const PORT = process.env.PORT || 8787
+app.listen(PORT, () => console.log(`triage API listening on :${PORT}`))
+</pre>
+      </details>
+      <p class="text-xs text-slate-500">Cost note: staying offline is free. If you enable an LLM API, casual use is typically only a few pounds for hundreds of items. Turn it off anytime.</p>
+    </section>
+  </div>
+
+  <!-- Main app script: everything runs in the browser -->
+  <script>
+    // =============================
+    // Utilities
+    // =============================
+
+    // Tiny UUID (not RFC-perfect, but fine for local IDs)
+    function uid() {
+      // Combine timestamp with a random suffix for uniqueness
+      return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
+    }
+
+    // Stopword set for crude keyword extraction
+    const STOP = new Set(['the','a','an','and','or','to','of','in','on','for','is','are','was','were','be','with','that','this','it','as','at','by','from','into','your','my','our','their'])
+
+    // =============================
+    // State (persisted in localStorage)
+    // =============================
+
+    const STORAGE_KEY = 'mistake-notebook-state-v1'
+
+    // Load state from localStorage or start with an empty structure
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return { problems: [], graph: { nodes: {}, edges: {} } }
+        return JSON.parse(raw)
+      } catch (e) {
+        console.warn('Failed to parse saved state, starting fresh', e)
+        return { problems: [], graph: { nodes: {}, edges: {} } }
+      }
+    }
+
+    // Save state into localStorage
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    }
+
+    // Global state in memory
+    let state = loadState()
+
+    // =============================
+    // Heuristic triage (free, offline)
+    // =============================
+
+    // Decide the problem type based on simple keyword rules
+    function detectType(t) {
+      const s = t.toLowerCase()
+      if (/(\bdef\b|lambda|numpy|np\.|pandas|sklearn|indexerror|keyerror|for\s*\(|enumerate|list\s*comp)/.test(s)) return 'code'
+      if (/(eigen|matrix|gradient|integral|derivative|probability|log\s*loss|variance|expectation|sigma|sum\b)/.test(s)) return 'math'
+      if (/(overfitting|regularization|cross[-\s]?entropy|auc|roc|svm|bayes|bias-variance|precision|recall)/.test(s)) return 'ml'
+      // Default to code — most interview prep starts here
+      return 'code'
+    }
+
+    // Extract concept candidates using small domain dictionaries
+    function extractConcepts(t, type) {
+      const s = t.toLowerCase()
+      const dict = {
+        code: [
+          'enumerate','list comprehension','zip','tuple unpack','indexing','off-by-one','time complexity',
+          'numpy broadcasting','pandas groupby','sklearn pipeline','dict vs set','generator','recursion'
+        ],
+        math: [
+          'eigenvalue','eigendecomposition','gradient','chain rule','log loss','variance','expectation',
+          'matrix inversion','convexity','l2 norm','rank','trace','conditioning'
+        ],
+        ml: [
+          'overfitting','regularization','cross entropy','auc','roc','bayes rule','bias-variance','precision','recall','f1 score','calibration'
+        ]
+      }
+      const base = dict[type] || dict.code
+      const hits = []
+      for (const k of base) {
+        // Check presence by the first token to tolerate spacing/hyphens
+        const key = k.split(' ')[0]
+        if (s.includes(key)) hits.push(k)
+      }
+      // If no hits, fall back to crude keyword extraction
+      if (hits.length === 0) {
+        const tokens = s.replace(/[^a-z0-9_\s]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w) && w.length > 2)
+        const freq = new Map()
+        for (const w of tokens) freq.set(w, (freq.get(w) || 0) + 1)
+        const top = [...freq.entries()].sort((a,b) => b[1]-a[1]).slice(0, 5).map(([w]) => w)
+        return top
+      }
+      return hits.slice(0, 6)
+    }
+
+    // Create a one‑sentence summary using simple templates
+    function makeSummary(type, concepts) {
+      if (type === 'code') {
+        if (concepts.some(c => c.includes('enumerate'))) return 'enumerate returns (index, value); unpack in that order.'
+        if (concepts.some(c => c.includes('index'))) return 'Check indexing and off‑by‑one; validate boundaries and lengths.'
+        if (concepts.some(c => c.includes('numpy'))) return 'Mind NumPy broadcasting rules and array shapes.'
+        if (concepts.some(c => c.includes('complexity'))) return 'Prefer linear time solutions; avoid nested loops if unnecessary.'
+        return `Focus on ${concepts[0] || 'the core logic'} and verify edge cases.`
+      }
+      if (type === 'math') {
+        if (concepts.some(c => c.includes('eigen'))) return 'Use eigendecomposition assumptions and verify matrix dimensions.'
+        if (concepts.some(c => c.includes('gradient'))) return 'Apply gradient rules carefully; watch the chain rule.'
+        if (concepts.some(c => c.includes('log loss'))) return 'Recall log‑loss definition and bounds; avoid taking log(0).'
+        return `Identify the governing definition and apply it to ${concepts[0] || 'the target quantity'}.`
+      }
+      if (type === 'ml') {
+        if (concepts.some(c => c.includes('overfitting'))) return 'Reduce variance with regularization or more data; validate on holdout.'
+        if (concepts.some(c => c.includes('auc') || c.includes('roc'))) return 'Interpret ROC‑AUC correctly; compare across thresholds.'
+        if (concepts.some(c => c.includes('cross entropy'))) return 'Use stable cross‑entropy; clip probabilities to avoid NaNs.'
+        return `Align loss, metric, and data distribution for ${concepts[0] || 'the task'}.`
+      }
+      return 'Identify the core concept and apply the definition.'
+    }
+
+    // Create a concise explanation body
+    function makeExplain(type) {
+      if (type === 'code') return 'Reproduce the bug, isolate the failing line, check indices/shapes, and write a minimal fix. Add a test.'
+      if (type === 'math') return 'Write the definition, derive step by step, check dimensions/signs, and verify with a simple numeric example.'
+      if (type === 'ml') return 'Confirm data split, pick a suitable loss/baseline, control variance with regularization, and validate on a holdout set.'
+      return 'Review the definition, verify steps, and test with a small example.'
+    }
+
+    // Compute a rough difficulty score in [0,1]
+    function difficultyScore(concepts) {
+      return Math.min(1, 0.25 + concepts.length * 0.12)
+    }
+
+    // Main heuristic triage function (no API required)
+    function heuristicTriage(rawText, typeHint) {
+      const txt = (rawText || '').trim()
+      const type = (typeHint && typeHint !== 'auto') ? typeHint : detectType(txt)
+      const concepts = extractConcepts(txt, type)
+      const summary = makeSummary(type, concepts)
+      const explain = makeExplain(type)
+      const difficulty = difficultyScore(concepts)
+      return { type, concepts, summary, explain, difficulty }
+    }
+
+    // =============================
+    // Optional LLM call (requires backend)
+    // =============================
+
+    async function triageWithBackend(rawText, typeHint) {
+      // Attempt to call /api/triage; if it fails, fall back to heuristic
+      try {
+        const r = await fetch('/api/triage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raw_problem: rawText, type_hint: typeHint })
+        })
+        if (!r.ok) throw new Error('backend not available')
+        return await r.json()
+      } catch (e) {
+        console.warn('LLM backend unavailable, using heuristic fallback', e)
+        return heuristicTriage(rawText, typeHint)
+      }
+    }
+
+    // =============================
+    // Graph state helpers
+    // =============================
+
+    // Add/increment a node for each concept and pairwise edges for co‑occurrence
+    function mergeGraph(concepts, type) {
+      // Ensure node map exists
+      state.graph.nodes ||= {}
+      state.graph.edges ||= {}
+
+      // Update node weights
+      for (const c of new Set(concepts)) {
+        const key = c.toLowerCase()
+        const node = state.graph.nodes[key] || { id: key, weight: 0, type }
+        node.weight += 1
+        node.type = node.type || type
+        state.graph.nodes[key] = node
+      }
+
+      // Update edge weights (undirected graph; key as sorted pair)
+      for (let i = 0; i < concepts.length; i++) {
+        for (let j = i + 1; j < concepts.length; j++) {
+          const a = concepts[i].toLowerCase()
+          const b = concepts[j].toLowerCase()
+          const pair = [a, b].sort().join('::')
+          const edge = state.graph.edges[pair] || { source: a, target: b, weight: 0 }
+          edge.weight += 1
+          state.graph.edges[pair] = edge
+        }
+      }
+    }
+
+    // Build Cytoscape elements from state
+    function buildCyElements(filter = null) {
+      const nodes = []
+      const edges = []
+
+      for (const id in state.graph.nodes) {
+        const n = state.graph.nodes[id]
+        if (filter && !filter(n)) continue
+        nodes.push({ data: { id, type: n.type, weight: n.weight } })
+      }
+
+      for (const key in state.graph.edges) {
+        const e = state.graph.edges[key]
+        // Only add edges if both endpoints pass filter (if filter provided)
+        if (filter) {
+          const a = state.graph.nodes[e.source]
+          const b = state.graph.nodes[e.target]
+          if (!a || !b || !filter(a) || !filter(b)) continue
+        }
+        edges.push({ data: { source: e.source, target: e.target, weight: e.weight } })
+      }
+
+      return [...nodes, ...edges]
+    }
+
+    // Render graph into the #graph container
+    let cy // Keep a reference to Cytoscape instance
+    function renderGraph() {
+      const container = document.getElementById('graph')
+      const elements = buildCyElements()
+
+      // Destroy existing instance to avoid leaks on re-render
+      if (cy) cy.destroy()
+
+      cy = cytoscape({
+        container,
+        elements,
+        layout: { name: 'cose', animate: false },
+        style: [
+          { selector: 'node', style: {
+            'label': 'data(id)',
+            'font-size': '10px',
+            'background-color': (ele) => {
+              const t = ele.data('type')
+              if (t === 'code') return '#3b82f6' // blue
+              if (t === 'math') return '#8b5cf6' // purple
+              if (t === 'ml') return '#10b981'   // green
+              return '#64748b'                   // slate
+            },
+            'width': (ele) => 12 + 6 * Math.sqrt(ele.data('weight') || 1),
+            'height': (ele) => 12 + 6 * Math.sqrt(ele.data('weight') || 1),
+            'color': '#fff',
+            'text-valign': 'center',
+            'text-halign': 'center'
+          }},
+          { selector: 'edge', style: {
+            'width': (ele) => 1 + Math.log2((ele.data('weight') || 1) + 1),
+            'line-color': '#94a3b8'
+          }}
+        ]
+      })
+
+      // When clicking a node, filter cards by that concept
+      cy.on('tap', 'node', (evt) => {
+        const concept = evt.target.id()
+        document.getElementById('searchInput').value = concept
+        applyFilters()
+      })
+    }
+
+    // =============================
+    // Card rendering helpers
+    // =============================
+
+    function createTag(label, color) {
+      const span = document.createElement('span')
+      span.className = `inline-block text-xs px-2 py-0.5 rounded-full ${color}`
+      span.textContent = label
+      return span
+    }
+
+    function renderCards() {
+      const list = document.getElementById('cards')
+      list.innerHTML = ''
+
+      // Read filter UI
+      const typeFilter = document.getElementById('filterType').value
+      const q = document.getElementById('searchInput').value.trim().toLowerCase()
+
+      // Iterate newest first
+      const items = [...state.problems].sort((a,b) => b.createdAt - a.createdAt)
+
+      for (const p of items) {
+        // Filter by type
+        if (typeFilter !== 'all' && p.type !== typeFilter) continue
+        // Filter by query (in raw or concepts)
+        const hay = (p.raw + ' ' + p.concepts.join(' ')).toLowerCase()
+        if (q && !hay.includes(q)) continue
+
+        // Card container
+        const card = document.createElement('div')
+        card.className = 'bg-white rounded-2xl shadow p-4 space-y-2'
+
+        // Header row: type tag + createdAt
+        const head = document.createElement('div')
+        head.className = 'flex items-center justify-between'
+        const left = document.createElement('div')
+        const typeColor = p.type === 'code' ? 'bg-blue-100 text-blue-700' : p.type === 'math' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'
+        left.appendChild(createTag(p.type.toUpperCase(), typeColor))
+        const time = document.createElement('div')
+        time.className = 'text-xs text-slate-500'
+        time.textContent = new Date(p.createdAt).toLocaleString()
+        head.appendChild(left)
+        head.appendChild(time)
+
+        // Concepts tags
+        const tags = document.createElement('div')
+        tags.className = 'flex flex-wrap gap-2'
+        for (const c of p.concepts) tags.appendChild(createTag(c, 'bg-slate-100 text-slate-700'))
+
+        // Summary line
+        const sum = document.createElement('div')
+        sum.className = 'font-medium'
+        sum.textContent = 'Insight: ' + p.summary
+
+        // Explanation paragraph
+        const exp = document.createElement('p')
+        exp.className = 'text-sm text-slate-700'
+        exp.textContent = p.explain
+
+        // Collapsible raw text
+        const det = document.createElement('details')
+        const sum2 = document.createElement('summary')
+        sum2.className = 'cursor-pointer text-sm text-slate-600'
+        sum2.textContent = 'Show original problem'
+        const pre = document.createElement('pre')
+        pre.className = 'bg-slate-50 border rounded p-3 overflow-auto text-xs'
+        pre.textContent = p.raw
+        det.appendChild(sum2)
+        det.appendChild(pre)
+
+        // Append all
+        card.appendChild(head)
+        card.appendChild(tags)
+        card.appendChild(sum)
+        card.appendChild(exp)
+        card.appendChild(det)
+        list.appendChild(card)
+      }
+    }
+
+    // =============================
+    // Main actions
+    // =============================
+
+    async function analyzeAndSave() {
+      const raw = document.getElementById('problemInput').value
+      const typeHint = document.getElementById('typeSelect').value
+      const useLLM = document.getElementById('useLlmToggle').checked
+
+      if (!raw.trim()) {
+        alert('Please paste a problem first.');
+        return
+      }
+
+      // Choose path: backend LLM or local heuristic
+      const triage = useLLM ? await triageWithBackend(raw, typeHint) : heuristicTriage(raw, typeHint)
+
+      // Create problem record
+      const rec = {
+        id: uid(),
+        raw,
+        type: triage.type,
+        concepts: triage.concepts || [],
+        summary: triage.summary || '',
+        explain: triage.explain || '',
+        difficulty: typeof triage.difficulty === 'number' ? triage.difficulty : 0.4,
+        createdAt: Date.now()
+      }
+
+      // Merge into state
+      state.problems.push(rec)
+      mergeGraph(rec.concepts, rec.type)
+      saveState()
+
+      // Re-render UI
+      renderGraph()
+      renderCards()
+    }
+
+    function clearInput() {
+      document.getElementById('problemInput').value = ''
+    }
+
+    function applyFilters() {
+      renderCards()
+      // Optionally: filter nodes by type on graph — keep graph global for now
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mistake-notebook.json'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    function resetAll() {
+      if (!confirm('This will clear all saved problems and the graph. Continue?')) return
+      state = { problems: [], graph: { nodes: {}, edges: {} } }
+      saveState()
+      renderGraph()
+      renderCards()
+    }
+
+    // =============================
+    // Wire up events & initial render
+    // =============================
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('analyzeBtn').addEventListener('click', analyzeAndSave)
+      document.getElementById('clearBtn').addEventListener('click', clearInput)
+      document.getElementById('applyFilterBtn').addEventListener('click', applyFilters)
+      document.getElementById('exportBtn').addEventListener('click', exportJson)
+      document.getElementById('resetBtn').addEventListener('click', resetAll)
+
+      renderGraph()
+      renderCards()
+    })
+  </script>
+</body>
+</html>
