@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QR Wrongbook — Practice + Stats</title>
+  <meta name="description" content="Local-first QR wrongbook with Grid & Focus views, stats, filters, timer, comments (with delete + confirm), solution editor, zoomable images, and a refined wide gradient header.">
+  <style>
+    :root{
+      /* Light / Dark / Green themes for content area */
+      --bg-light:#f6f9ff; --card-light:#ffffff; --muted-light:#eff4fb; --muted-2-light:#e6eef8; --text-light:#0f172a; --text-dim-light:#475569; --border-light:#d0daea;
+      --bg-dark:#0b1020; --card-dark:#0f1723; --muted-dark:#0b1320; --muted-2-dark:#0a121d; --text-dark:#dbeafe; --text-dim-dark:#94a3b8; --border-dark:#213042;
+      --bg-green:#eef7f0; --card-green:#ffffff; --muted-green:#e7f3eb; --muted-2-green:#dff0e6; --text-green:#0b4022; --text-dim-green:#2e6d4a; --border-green:#cfe7d7;
+
+      /* Header gradient accents */
+      --accent1:#3b82f6; --accent2:#06b6d4; --accent3:#10b981;
+
+      /* Buttons */
+      --btn-bg: var(--muted);
+      --btn-text: var(--text);
+      --btn-border: var(--border);
+      --btn-bg-hover: var(--muted-2);
+    }
+    body.light{--bg:var(--bg-light);--card:var(--card-light);--muted:var(--muted-light);--muted-2:var(--muted-2-light);--text:var(--text-light);--text-dim:var(--text-dim-light);--border:var(--border-light)}
+    body.dark{--bg:var(--bg-dark);--card:var(--card-dark);--muted:var(--muted-dark);--muted-2:var(--muted-2-dark);--text:var(--text-dark);--text-dim:var(--text-dim-dark);--border:var(--border-dark)}
+    body.green{--bg:var(--bg-green);--card:var(--card-green);--muted:var(--muted-green);--muted-2:var(--muted-2-green);--text:var(--text-green);--text-dim:var(--text-dim-green);--border:var(--border-green)}
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto}
+
+    /* ===== Wide, clean gradient header ===== */
+    header{position:fixed;top:0;left:0;right:0;z-index:1000;
+      background:linear-gradient(90deg,var(--accent1),var(--accent2),var(--accent3));
+      box-shadow:0 10px 26px rgba(0,0,0,.20), 0 3px 10px rgba(0,0,0,.12);
+    }
+    .bar{max-width:1400px;margin:0 auto;padding:18px 28px;display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;gap:.7rem;align-items:center;font-weight:900;font-size:1.35rem;color:#fff}
+    .orb{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 30% 30%, #fff, #68d7ff 40%, #2563eb);box-shadow:0 0 18px #68d7ff88}
+
+    /* Nav wrappers: default wraps; header keeps single line */
+    .nav-wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    header .nav-wrap{white-space:nowrap;flex-wrap:nowrap}
+
+    /* Generic buttons for CONTENT (cards, dialogs, etc.) */
+    .btn{
+      cursor:pointer;font-weight:800;border-radius:999px;padding:.6rem 1.15rem;border:1px solid var(--btn-border);
+      background:var(--btn-bg);color:var(--btn-text);transition:all .18s ease;
+    }
+    .btn:hover{background:var(--btn-bg-hover)}
+    .btn.active{box-shadow:0 6px 14px rgba(0,0,0,.10)}
+
+    /* Header buttons keep the glassy white look without changing HTML */
+    header .btn{background:rgba(255,255,255,.16);border:none;color:#fff;backdrop-filter:blur(4px)}
+    header .btn:hover{background:rgba(255,255,255,.28)}
+    header .btn.active{background:#ffffff;color:var(--accent1);box-shadow:0 6px 14px rgba(0,0,0,.15)}
+
+    /* The theme select in header */
+    select.themeSel{appearance:none;-webkit-appearance:none;border:none;background:rgba(255,255,255,.16);color:#fff;
+      padding:.6rem 1.15rem;border-radius:999px;font-weight:800;cursor:pointer}
+
+    /* Spacer so content never hides under header */
+    #header-spacer{height:96px}
+
+    /* ===== Layout & spacing for content ===== */
+    .container{max-width:1200px;margin:0 auto;padding:1.4rem 1.2rem}
+    .controls{display:grid;grid-template-columns:1fr;gap:1rem;margin:1.4rem 0 2.2rem}
+    @media(min-width:900px){.controls{grid-template-columns: 1.3fr 1fr 1fr 1fr auto}}
+
+    .field{background:var(--card);border:1px solid var(--border);border-radius:.95rem;padding:.7rem .95rem;display:flex;gap:.6rem;align-items:center}
+    input[type="text"], select, textarea{width:100%;background:transparent;border:none;outline:none;color:var(--text);font-size:1rem}
+    ::placeholder{color:rgba(127,127,127,.85)}
+
+    .chips{display:flex;flex-wrap:wrap;gap:.55rem;margin-bottom:1.2rem}
+    .chip{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .7rem;border-radius:999px;border:1px solid var(--border);font-size:.9rem;background:var(--muted);max-width:100%}
+    /* prevent overflow of the Sort select inside the chip */
+    .chip select{min-width:0;max-width:220px}
+
+    .grid{display:grid;grid-template-columns:1fr;gap:1.3rem}
+    @media(min-width:720px){.grid{grid-template-columns: repeat(2,1fr)}}
+    @media(min-width:1080px){.grid{grid-template-columns: repeat(3,1fr)}}
+    .card{background:linear-gradient(180deg,var(--card),var(--muted-2));border:1px solid var(--border);border-radius:1rem;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+    .card .top{padding:1rem;border-bottom:1px solid var(--border);display:flex;gap:.8rem;align-items:center;justify-content:space-between}
+    .title-link{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-size:1.05rem}
+    .content{padding:1rem}
+    .thumbs{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem}
+    .thumbs img{height:80px;width:120px;object-fit:cover;border-radius:.6rem;border:1px solid var(--border);cursor:zoom-in}
+    .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem}
+
+    /* Focus view */
+    #view-focus{max-width:980px;margin:18px auto;padding:0 18px}
+    .focus-card{background:var(--card);border:1px solid var(--border);border-radius:1rem;box-shadow:0 10px 28px rgba(0,0,0,.09);overflow:hidden}
+    .focus-head{display:flex;justify-content:space-between;align-items:center;padding:1.1rem;border-bottom:1px solid var(--border)}
+    .focus-body{padding:1rem}
+    .meta{display:flex;gap:.5rem;flex-wrap:wrap}
+
+    details.fold{margin:1rem 0;border:1px dashed var(--border);border-radius:.9rem;overflow:hidden}
+    .fold>summary{cursor:pointer;list-style:none;padding:.7rem .95rem;background:var(--muted);border-bottom:1px dashed var(--border);font-weight:800}
+    .fold[open]>summary{background:var(--muted-2)}
+    .fold .inner{padding:1rem}
+
+    .timer{display:flex;align-items:center;gap:.6rem;margin-top:.6rem}
+    .timer .clock{font-variant-numeric:tabular-nums;font-weight:900}
+    .history{margin-top:1rem;font-size:.95rem;color:var(--text-dim)}
+
+    .field input, .field textarea, #commentInput, #solutionInput{background:var(--card);color:var(--text)!important;caret-color:var(--text);border:1px solid var(--border);padding:.7rem;border-radius:.7rem;width:100%}
+    .comment{background:var(--muted);border:1px solid var(--border);border-radius:.7rem;padding:.7rem;margin:.5rem 0;color:var(--text);display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
+    .comment .text{flex:1}
+    .comment small{color:var(--text-dim);display:block;margin-bottom:.25rem}
+    /* comment delete button: compact, high contrast */
+    .icon-btn{padding:.35rem .7rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text-dim);font-weight:900}
+    .icon-btn:hover{background:var(--muted-2);color:var(--text)}
+
+    /* Stats view */
+    #view-stats{max-width:1100px;margin:18px auto;padding:0 18px}
+    .stat-cards{display:grid;grid-template-columns:1fr;gap:.9rem}
+    @media(min-width:900px){.stat-cards{grid-template-columns:repeat(3,1fr)}}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:.9rem;padding:1rem}
+    .bars{display:grid;grid-template-columns:1fr;gap:.5rem;margin-top:.8rem}
+    .barrow{display:flex;gap:.6rem;align-items:center}
+    .barrow .label{width:120px;color:var(--text-dim)}
+    .bar{height:12px;border-radius:999px;background:linear-gradient(90deg,#2563eb,#22d3ee,#34d399)}
+    table.stats{width:100%;border-collapse:collapse;margin-top:.6rem;font-size:.95rem}
+    table.stats th,table.stats td{border-bottom:1px solid var(--border);padding:.5rem .25rem;text-align:left}
+
+    /* Dialog close button high-contrast */
+    #btnClose{background:transparent;border:1px solid var(--border);color:var(--text);padding:.4rem .75rem;border-radius:999px}
+    #btnClose:hover{background:var(--muted)}
+
+    .hide{display:none}
+  </style>
+</head>
+<body class="dark">
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="orb"></span><span>QR Wrongbook</span></div>
+      <div class="nav-wrap">
+        <button class="btn" id="btnNavPractice">Practice</button>
+        <button class="btn" id="btnNavStats">Stats</button>
+        <button class="btn" id="btnAdd">Add Problem</button>
+        <button class="btn" id="btnExport">Export</button>
+        <button class="btn" id="btnImport">Import</button>
+        <select class="themeSel" id="themeSel" title="Theme">
+          <option value="light">☀️ Light</option>
+          <option value="dark" selected>🌙 Dark</option>
+          <option value="green">🌿 Green</option>
+        </select>
+      </div>
+    </div>
+  </header>
+  <div id="header-spacer"></div>
+
+  <!-- GRID VIEW -->
+  <div id="view-grid">
+    <div class="container">
+      <div class="controls">
+        <div class="field">🔎 <input id="q" type="text" placeholder="Search… (title, question, notes)"></div>
+        <div class="field">🧭
+          <select id="fCategory" multiple>
+            <option>Code</option><option>Math</option><option>Behavior question</option><option>Machine Learning</option>
+          </select>
+        </div>
+        <div class="field">🎯
+          <select id="fDifficulty" multiple>
+            <option>Easy</option><option>Medium</option><option>Hard</option><option>Deadly</option>
+          </select>
+        </div>
+        <div class="field">📈
+          <select id="fMastery" multiple>
+            <option>Not at all</option><option>A bit</option><option>Slightly unsure</option><option>Calculation error</option><option>Mastered</option>
+          </select>
+        </div>
+        <div class="nav-wrap">
+          <span class="chip">Sort:
+            <select id="sort">
+              <option value="new">Newest</option>
+              <option value="old">Oldest</option>
+              <option value="diff">Difficulty</option>
+              <option value="mastery">Mastery</option>
+              <option value="cat">Category</option>
+            </select>
+          </span>
+          <button class="btn" id="btnClearFilters">Reset</button>
+        </div>
+      </div>
+      <div class="chips" id="stats"></div>
+      <div class="grid" id="list"></div>
+    </div>
+  </div>
+
+  <!-- FOCUS VIEW -->
+  <div id="view-focus" class="hide">
+    <div class="focus-card">
+      <div class="focus-head">
+        <div>
+          <div id="fTitle" style="font-size:1.25rem;font-weight:900"></div>
+          <div class="meta" id="fMeta"></div>
+        </div>
+        <div class="nav-wrap">
+          <button class="btn" id="btnBack">← Back</button>
+          <button class="btn" id="btnFocusEdit">Edit</button>
+        </div>
+      </div>
+      <div class="focus-body">
+        <div id="fQuestion" style="white-space:pre-wrap"></div>
+        <div class="thumbs" id="fThumbs"></div>
+
+        <details class="fold" id="foldHint"><summary>Hint</summary>
+          <div class="inner" id="fHint" style="white-space:pre-wrap"></div>
+        </details>
+        <details class="fold" id="foldSolution"><summary>Solution</summary>
+          <div class="inner" style="white-space:pre-wrap" id="fSolution"></div>
+          <div class="inner" id="solutionEditor" style="display:none">
+            <textarea id="solutionInput" placeholder="Write your solution here…" rows="8"></textarea>
+            <div class="nav-wrap" style="margin-top:.5rem">
+              <button class="btn" id="btnSaveSolution">Save</button>
+              <button class="btn" id="btnCancelSolution">Cancel</button>
+              <button class="btn" id="btnClearSolution">Clear</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="fold"><summary>Comments</summary>
+          <div class="inner">
+            <div id="fComments"></div>
+            <div class="nav-wrap" style="margin-top:.5rem">
+              <input id="commentInput" type="text" placeholder="Add a comment…">
+              <button class="btn" id="btnAddComment">Add</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="fold"><summary>Practice & Time</summary>
+          <div class="inner">
+            <div class="timer">
+              <span class="clock" id="clock">00:00</span>
+              <button class="btn" id="btnStartStop">Start</button>
+              <button class="btn" id="btnReset">Reset</button>
+              <button class="btn" id="btnLog">Log session</button>
+            </div>
+            <div class="history" id="history"></div>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS VIEW -->
+  <div id="view-stats" class="hide">
+    <div class="container">
+      <div class="stat-cards">
+        <div class="stat-card"><div style="color:var(--text-dim)">Total study time</div><div id="statTotalTime" style="font-size:1.8rem;font-weight:900">0m</div></div>
+        <div class="stat-card"><div style="color:var(--text-dim)">Total sessions</div><div id="statTotalSessions" style="font-size:1.8rem;font-weight:900">0</div></div>
+        <div class="stat-card"><div style="color:var(--text-dim)">Distinct days practiced</div><div id="statDays" style="font-size:1.8rem;font-weight:900">0</div></div>
+      </div>
+
+      <div class="stat-card" style="margin-top:1rem">
+        <div style="font-weight:900">Daily practice (last 30 days)</div>
+        <div class="bars" id="bars"></div>
+        <table class="stats" id="tableStats"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image viewer dialog with zoom/pan -->
+  <dialog id="imgDlg">
+    <div class="viewer" id="viewer">
+      <div id="imgWrap"><img id="imgFull" alt="preview"/></div>
+      <div class="toolbar">
+        <button id="zoomIn">+</button>
+        <button id="zoomOut">−</button>
+        <button id="zoomFit">Fit</button>
+        <button id="zoom100">100%</button>
+        <button id="closeDlg">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Dialog for create/edit -->
+  <dialog id="dlg">
+    <form method="dialog" id="problemForm">
+      <div style="padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:900">
+        <strong id="dlgTitle">Add Problem</strong>
+        <button class="btn" id="btnClose" type="button" value="close">✕</button>
+      </div>
+      <div style="padding:1rem;display:grid;gap:.85rem">
+        <div class="field"><input type="text" id="title" placeholder="Title (short & searchable)" required></div>
+        <div class="field"><input type="text" id="source" placeholder="Source (e.g. Citadel pad / book / link)"></div>
+        <label>Question</label>
+        <textarea id="question" placeholder="Paste the problem statement."></textarea>
+        <div style="display:grid;gap:.7rem;grid-template-columns:1fr 1fr">
+          <div class="field"><select id="category" required>
+            <option value="">Category…</option>
+            <option>Code</option><option>Math</option><option>Behavior question</option><option>Machine Learning</option>
+          </select></div>
+          <div class="field"><select id="difficulty" required>
+            <option value="">Difficulty…</option>
+            <option>Easy</option><option>Medium</option><option>Hard</option><option>Deadly</option>
+          </select></div>
+          <div class="field"><select id="mastery" required>
+            <option value="">Mastery…</option>
+            <option>Not at all</option><option>A bit</option><option>Slightly unsure</option><option>Calculation error</option><option>Mastered</option>
+          </select></div>
+          <div class="field"><input type="text" id="tags" placeholder="Optional tags (comma separated)"></div>
+        </div>
+        <label>Hint (optional)</label>
+        <textarea id="hint" placeholder="Key observation or first step"></textarea>
+        <label>Solution (optional)</label>
+        <textarea id="solution" placeholder="Clean final solution / proof / code idea"></textarea>
+        <div>
+          <div class="field" id="dropzone" style="justify-content:center;cursor:pointer;border-style:dashed"><strong>Drop screenshots here</strong> or click to upload.<br><span style="color:var(--text-dim)">PNG/JPG supported. Paste with Ctrl/Cmd+V.</span></div>
+          <input class="hide" type="file" id="images" accept="image/*" multiple>
+          <div class="thumbs" id="previews"></div>
+        </div>
+      </div>
+      <div style="padding:1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:1rem;color:var(--text-dim)">
+        <span>Local-only (IndexedDB). Use Export for backup.</span>
+        <button class="btn" id="btnSave" value="default">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="importInput" class="hide" type="file" accept="application/json"/>
+
+<script>
+(function(){
+  const DIFF=["Easy","Medium","Hard","Deadly"];
+  const CATS=["Code","Math","Behavior question","Machine Learning"];
+  const MAST=["Not at all","A bit","Slightly unsure","Calculation error","Mastered"];
+
+  // Theme
+  const themeSel=document.getElementById('themeSel');
+  let savedTheme=localStorage.getItem('qr-theme')|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  document.body.className=savedTheme; themeSel.value=savedTheme;
+  themeSel.addEventListener('change',()=>{ document.body.className=themeSel.value; localStorage.setItem('qr-theme', themeSel.value); placeHeaderSpacer(); });
+
+  // Nav
+  const btnNavPractice=$('#btnNavPractice');
+  const btnNavStats=$('#btnNavStats');
+  function setNav(active){ btnNavPractice.classList.toggle('active', active==='practice'); btnNavStats.classList.toggle('active', active==='stats'); }
+
+  // Floating header spacer so content never hides
+  function placeHeaderSpacer(){ const spacer=$('#header-spacer'); const h=document.querySelector('header').offsetHeight; spacer.style.height=(h+8)+'px'; }
+  window.addEventListener('resize', placeHeaderSpacer); new ResizeObserver(placeHeaderSpacer).observe(document.querySelector('header'));
+  placeHeaderSpacer();
+
+  // IndexedDB
+  const DB_NAME='qr-wrongbook'; const STORE='problems'; let dbPromise=null;
+  function openDB(){ if(dbPromise) return dbPromise; dbPromise=new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,2); r.onupgradeneeded=(e)=>{ const db=r.result; let os; if(!db.objectStoreNames.contains(STORE)){ os=db.createObjectStore(STORE,{keyPath:'id'}); } else { os=e.target.transaction.objectStore(STORE); }
+      ['createdAt','category','difficulty','mastery'].forEach(idx=>{ if(!os.indexNames.contains(idx)) os.createIndex(idx, idx); }); };
+      r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); return dbPromise; }
+  function tx(mode='readonly'){ return openDB().then(db=>db.transaction(STORE,mode).objectStore(STORE)); }
+  function all(){ return tx().then(os=>new Promise((res,rej)=>{ const rq=os.getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error);})); }
+  function put(item){ return tx('readwrite').then(os=>new Promise((res,rej)=>{ const rq=os.put(item); rq.onsuccess=()=>res(item); rq.onerror=()=>rej(rq.error);})); }
+  function remove(id){ return tx('readwrite').then(os=>new Promise((res,rej)=>{ const rq=os.delete(id); rq.onsuccess=()=>res(); rq.onerror=()=>rej(rq.error);})); }
+
+  // State
+  let items=[]; let editingId=null; let focusId=null; let timer=null; let elapsed=0; let ticking=false; let tickStart=0;
+  const filters={ q:'', cats:new Set(JSON.parse(localStorage.getItem('f.cats')||'[]')), diffs:new Set(JSON.parse(localStorage.getItem('f.diffs')||'[]')), masts:new Set(JSON.parse(localStorage.getItem('f.masts')||'[]')), sort:localStorage.getItem('f.sort')||'new' };
+
+  // DOM Refs
+  const list=$('#list'), stats=$('#stats'), q=$('#q'), fCategory=$('#fCategory'), fDifficulty=$('#fDifficulty'), fMastery=$('#fMastery'), sortSel=$('#sort');
+  const viewGrid=$('#view-grid'), viewFocus=$('#view-focus'), viewStats=$('#view-stats');
+  const fTitle=$('#fTitle'), fMeta=$('#fMeta'), fQuestion=$('#fQuestion'), fThumbs=$('#fThumbs');
+  const fHint=$('#fHint'), fSolution=$('#fSolution'), solutionEditor=$('#solutionEditor'), solutionInput=$('#solutionInput');
+  const btnSaveSolution=$('#btnSaveSolution'), btnCancelSolution=$('#btnCancelSolution'), btnClearSolution=$('#btnClearSolution');
+  const fComments=$('#fComments'), commentInput=$('#commentInput');
+  const clock=$('#clock'), btnStartStop=$('#btnStartStop'), btnReset=$('#btnReset'), btnLog=$('#btnLog'), historyBox=$('#history');
+  const statTotalTime=$('#statTotalTime'), statTotalSessions=$('#statTotalSessions'), statDays=$('#statDays');
+  const bars=$('#bars'), tableStats=$('#tableStats');
+
+  // Dialog
+  const dlg=$('#dlg'); const problemForm=$('#problemForm'); const dlgTitle=$('#dlgTitle'); const btnClose=$('#btnClose');
+  const iTitle=$('#title'), iSource=$('#source'), iQuestion=$('#question');
+  const iCategory=$('#category'), iDifficulty=$('#difficulty'), iMastery=$('#mastery'), iTags=$('#tags');
+  const iHint=$('#hint'), iSolution=$('#solution');
+  const dropzone=$('#dropzone'), images=$('#images'), previews=$('#previews');
+  btnClose.addEventListener('click', (e)=>{ e.preventDefault(); dlg.close(); });
+
+  // Image viewer
+  const imgDlg=$('#imgDlg'); const imgFull=$('#imgFull'); const imgWrap=$('#imgWrap');
+  const zoomIn=$('#zoomIn'), zoomOut=$('#zoomOut'), zoomFit=$('#zoomFit'), zoom100=$('#zoom100'), closeDlg=$('#closeDlg');
+  let scale=1, originX=0, originY=0, dragging=false, startX=0, startY=0;
+
+  // Utils
+  function $(s){return document.querySelector(s)}
+  function $$(s){return Array.from(document.querySelectorAll(s))}
+  const genId=()=> (crypto.randomUUID?crypto.randomUUID():'id_'+Date.now()+Math.random().toString(36).slice(2));
+  const fmt=ts=> new Date(ts).toLocaleString();
+  const fmtDate=ts=> new Date(ts).toISOString().slice(0,10);
+  const fmtMin=s=>{ const m=Math.floor(s/60), ss=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); }
+  const escapeHTML=s=>(s||'').replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+
+  // Init
+  bindUI(); load(); routeFromHash();
+  window.addEventListener('hashchange', routeFromHash);
+
+  async function load(){ items=await all(); render(); if(location.hash==='#stats') showStats(); }
+
+  function bindUI(){
+    $('#btnAdd').addEventListener('click',()=>openDialog());
+    $('#btnExport').addEventListener('click', exportJSON);
+    $('#btnImport').addEventListener('click', ()=>$('#importInput').click());
+    $('#importInput').addEventListener('change', importJSON);
+    $('#btnClearFilters').addEventListener('click', ()=>{ filters.cats.clear(); filters.diffs.clear(); filters.masts.clear(); saveFilters(); reflectFilters(); render(); });
+
+    q.addEventListener('input', ()=>{ filters.q=q.value.trim().toLowerCase(); render(); });
+    sortSel.addEventListener('change', ()=>{ filters.sort=sortSel.value; localStorage.setItem('f.sort', filters.sort); render(); });
+    ;[fCategory,fDifficulty,fMastery].forEach(sel=> sel.addEventListener('change', ()=>{ const which = sel===fCategory? 'cats' : sel===fDifficulty? 'diffs' : 'masts'; filters[which]= new Set(Array.from(sel.selectedOptions).map(o=>o.value)); saveFilters(); render(); }));
+
+    // nav
+    btnNavPractice.addEventListener('click',()=>{ location.hash=''; });
+    btnNavStats.addEventListener('click',()=>{ location.hash='#stats'; });
+
+    // dialog save
+    problemForm.addEventListener('submit', saveRecord);
+
+    // dropzone
+    dropzone.addEventListener('click',()=>images.click());
+    ;['dragenter','dragover'].forEach(ev=> dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+    ;['dragleave','drop'].forEach(ev=> dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+    dropzone.addEventListener('drop', e=>{ const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.type.startsWith('image/')); if(files.length) readImages(files); });
+    images.addEventListener('change', ()=> readImages(Array.from(images.files||[])));
+    dlg.addEventListener('paste', e=>{ const it=Array.from(e.clipboardData?.items||[]).filter(i=>i.type&&i.type.startsWith('image/')).map(i=>i.getAsFile()); if(it.length) readImages(it); });
+
+    // focus nav
+    $('#btnBack').addEventListener('click', ()=>{ location.hash=''; });
+    $('#btnFocusEdit').addEventListener('click', ()=>{ const it=items.find(x=>x.id===focusId); if(it) openDialog(it); });
+
+    // timer
+    btnStartStop.addEventListener('click', toggleTimer);
+    btnReset.addEventListener('click', ()=>{ stopTimer(false); elapsed=0; renderClock(); });
+    btnLog.addEventListener('click', ()=>{ logSession(true); });
+
+    // solution editor
+    btnSaveSolution.addEventListener('click', saveSolution);
+    btnCancelSolution.addEventListener('click', ()=> toggleSolutionEditor(false));
+    btnClearSolution.addEventListener('click', clearSolution);
+
+    // image viewer controls
+    imgWrap.addEventListener('mousedown',(e)=>{ dragging=true; startX=e.clientX-originX; startY=e.clientY-originY; });
+    window.addEventListener('mousemove',(e)=>{ if(!dragging) return; originX=e.clientX-startX; originY=e.clientY-startY; applyTransform(); });
+    window.addEventListener('mouseup',()=> dragging=false);
+    imgWrap.addEventListener('wheel',(e)=>{ e.preventDefault(); zoom(e.deltaY<0?1:-1); }, {passive:false});
+    zoomIn.onclick=()=>zoom(1); zoomOut.onclick=()=>zoom(-1); zoomFit.onclick=fit; zoom100.onclick=()=>{ scale=1; originX=originY=0; applyTransform(); };
+    closeDlg.onclick=()=> imgDlg.close(); imgDlg.addEventListener('click',(e)=>{ if(e.target===imgDlg) imgDlg.close(); });
+    window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && imgDlg.open) imgDlg.close(); });
+  }
+
+  function reflectFilters(){ for(const [sel,set] of [[fCategory,filters.cats],[fDifficulty,filters.diffs],[fMastery,filters.masts]]){ Array.from(sel.options).forEach(o=> o.selected=set.has(o.value)); } sortSel.value=filters.sort; }
+  function saveFilters(){ localStorage.setItem('f.cats', JSON.stringify(Array.from(filters.cats))); localStorage.setItem('f.diffs', JSON.stringify(Array.from(filters.diffs))); localStorage.setItem('f.masts', JSON.stringify(Array.from(filters.masts))); }
+  function clearForm(){ problemForm.reset(); previews.innerHTML=''; iHint.value=''; iSolution.value=''; }
+
+  function openDialog(edit=null){ clearForm(); editingId=null; if(edit){ editingId=edit.id; dlgTitle.textContent='Edit Problem'; iTitle.value=edit.title||''; iSource.value=edit.source||''; iQuestion.value=edit.question||''; iCategory.value=edit.category||''; iDifficulty.value=edit.difficulty||''; iMastery.value=edit.mastery||''; iTags.value=(edit.tags||[]).join(', '); iHint.value=edit.hint||''; iSolution.value=edit.solution||''; (edit.images||[]).forEach(img=> addPreview(img.dataUrl,img.name)); } else { dlgTitle.textContent='Add Problem'; }
+    dlg.showModal(); setTimeout(()=> iTitle.focus(), 40); }
+
+  function readImages(files){ files.forEach(f=>{ const fr=new FileReader(); fr.onload=()=> addPreview(fr.result,f.name); fr.readAsDataURL(f); }); }
+  function addPreview(dataUrl,name){ const img=new Image(); img.src=dataUrl; img.alt=name||'image'; previews.appendChild(img); }
+
+  async function saveRecord(e){ e.preventDefault(); const imgs=Array.from(previews.querySelectorAll('img')).map(img=>({name:img.alt||'image', dataUrl:img.src})); const now=Date.now(); const old= editingId ? items.find(x=>x.id===editingId) : null; const rec={ id: editingId||genId(), createdAt: old? old.createdAt: now, updatedAt: now, title:iTitle.value.trim(), source:iSource.value.trim(), question:iQuestion.value.trim(), category:iCategory.value, difficulty:iDifficulty.value, mastery:iMastery.value, tags:(iTags.value.split(',').map(s=>s.trim()).filter(Boolean)), images: imgs, hint: iHint.value.trim(), solution: iSolution.value.trim(), comments: old?.comments||[], sessions: old?.sessions||[] };
+    if(!rec.title||!rec.category||!rec.difficulty||!rec.mastery){ alert('Please fill required fields.'); return; }
+    await put(rec); editingId=null; dlg.close(); await load(); if(focusId===rec.id) showFocus(rec.id); }
+
+  function render(){
+    reflectFilters();
+    const arr=items.filter(x=>{
+      if(filters.q){
+        const blob=(x.title+' '+x.question+' '+(x.tags||[]).join(' ')).toLowerCase();
+        if(!blob.includes(filters.q)) return false;
+      }
+      if(filters.cats.size && !filters.cats.has(x.category)) return false;
+      if(filters.diffs.size && !filters.diffs.has(x.difficulty)) return false;
+      if(filters.masts.size && !filters.masts.has(x.mastery)) return false;
+      return true;
+    });
+    const sorters={
+      new:(a,b)=>b.createdAt-a.createdAt,
+      old:(a,b)=>a.createdAt-b.createdAt,
+      diff:(a,b)=>DIFF.indexOf(a.difficulty)-DIFF.indexOf(b.difficulty),
+      mastery:(a,b)=>MAST.indexOf(a.mastery)-MAST.indexOf(b.mastery),
+      cat:(a,b)=>CATS.indexOf(a.category)-CATS.indexOf(b.category)
+    };
+    arr.sort(sorters[filters.sort]||sorters.new);
+
+    const s={ total:items.length, shown:arr.length, byCat:Object.fromEntries(CATS.map(c=>[c,0])), byDiff:Object.fromEntries(DIFF.map(d=>[d,0])), byMast:Object.fromEntries(MAST.map(m=>[m,0])) };
+    items.forEach(x=>{ s.byCat[x.category]++; s.byDiff[x.difficulty]++; s.byMast[x.mastery]++; });
+
+    stats.innerHTML=`<span class="chip">All: ${s.total}</span><span class="chip">Shown: ${s.shown}</span>`
+      + CATS.map(c=>`<span class="chip">${c}: ${s.byCat[c]||0}</span>`).join('')
+      + DIFF.map(d=>`<span class="chip">${d}: ${s.byDiff[d]||0}</span>`).join('')
+      + MAST.map(m=>`<span class="chip">${m}: ${s.byMast[m]||0}</span>`).join('');
+
+    list.innerHTML = arr.length
+      ? arr.map(cardHTML).join('')
+      : `<article class="card"><div class="content" style="color:var(--text-dim)">No problems match the current filters/sort. Try adjusting filters or hit <strong>Reset</strong>.</div></article>`;
+
+    $$('.js-open').forEach(a=> a.addEventListener('click',()=>{ location.hash='#focus/'+a.dataset.id; }));
+    $$('.js-edit').forEach(b=> b.addEventListener('click',()=>{ const id=b.dataset.id; const it=items.find(x=>x.id===id); openDialog(it); }));
+    $$('.js-delete').forEach(b=> b.addEventListener('click', async()=>{ const id=b.dataset.id; if(confirm('Delete this problem?')){ await remove(id); load(); }}));
+    $$('.js-mastered').forEach(b=> b.addEventListener('click', async()=>{ const id=b.dataset.id; const it=items.find(x=>x.id===id); it.mastery = it.mastery==='Mastered' ? 'Slightly unsure':'Mastered'; it.updatedAt=Date.now(); await put(it); load(); }));
+  }
+
+  function badge(text){ return `<span class="chip">${escapeHTML(text)}</span>`; }
+  function cardHTML(x){
+    const thumbs=(x.images||[]).slice(0,3).map((img,i)=>`<img src="${img.dataUrl}" alt="thumb${i}">`).join('');
+    const mastered=x.mastery==='Mastered';
+    return `
+    <article class="card" data-id="${x.id}">
+      <div class="top">
+        <div style="min-width:0">
+          <div class="title-link js-open" data-id="${x.id}" title="Open Focus">${escapeHTML(x.title||'(untitled)')}</div>
+          <div style="color:var(--text-dim);font-size:.9rem">${new Date(x.createdAt).toLocaleDateString()} · ${escapeHTML(x.source||'')}</div>
+        </div>
+        <div class="chips">${badge(x.difficulty)}${badge(x.category)}${badge(x.mastery)}</div>
+      </div>
+      <div class="content">
+        ${thumbs? `<div class="thumbs">${thumbs}</div>`:''}
+        <div class="actions">
+          <button class="btn js-open" data-id="${x.id}">Practice</button>
+          <button class="btn js-edit" data-id="${x.id}">Edit</button>
+          <button class="btn js-mastered" data-id="${x.id}">${mastered?'Unmark Mastered':'Mark Mastered'}</button>
+          <button class="btn js-delete" data-id="${x.id}">Delete</button>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function routeFromHash(){ const h=location.hash; if(h.startsWith('#focus/')){ const id=h.split('/')[1]; showFocus(id); setNav('practice'); } else if(h==='#stats'){ showStats(); setNav('stats'); } else { showGrid(); setNav('practice'); } }
+  function showGrid(){ viewFocus.classList.add('hide'); viewStats.classList.add('hide'); viewGrid.classList.remove('hide'); stopTimer(false); }
+  function showFocus(id){
+    focusId=id; const it=items.find(x=>x.id===id); if(!it){ location.hash=''; return; }
+    viewGrid.classList.add('hide'); viewStats.classList.add('hide'); viewFocus.classList.remove('hide');
+    fTitle.textContent=it.title||''; fMeta.innerHTML=`${badge(it.difficulty)}${badge(it.category)}${badge(it.mastery)} ${it.source? '· '+escapeHTML(it.source):''}`;
+    fQuestion.textContent=it.question||''; fThumbs.innerHTML=(it.images||[]).map((img,idx)=>`<img src="${img.dataUrl}" alt="img-${idx}">`).join('');
+    Array.from(fThumbs.querySelectorAll('img')).forEach(el=>{ el.addEventListener('click',()=> openViewer(el.src)); });
+    fHint.textContent=it.hint||''; fSolution.textContent=it.solution||'';
+    const solFold=$('#foldSolution');
+    solFold.addEventListener('toggle', (e)=>{ if(e.target.open && (!it.solution || !it.solution.trim())){ toggleSolutionEditor(true); } }, {once:true});
+    toggleSolutionEditor(false);
+    renderComments(it); renderHistory(it);
+    stopTimer(false); elapsed=0; renderClock();
+  }
+
+  function renderComments(it){
+    const arr=it.comments||[];
+    fComments.innerHTML = arr.length
+      ? arr.map((c,i)=>`<div class="comment"><div class="text"><small>${fmt(c.ts)}</small><div style="white-space:pre-wrap">${escapeHTML(c.text)}</div></div><button class="icon-btn js-del" data-idx="${i}" title="Delete">×</button></div>`).join('')
+      : '<div style="color:var(--text-dim)">No comments yet.</div>';
+
+    $('#btnAddComment').onclick = async ()=>{
+      const t=commentInput.value.trim(); if(!t) return;
+      const now=Date.now(); const obj=items.find(x=>x.id===focusId);
+      obj.comments = (obj.comments||[]).concat([{ts:now,text:t}]);
+      obj.updatedAt=now; await put(obj); commentInput.value=''; renderComments(obj);
+    };
+    fComments.querySelectorAll('.js-del').forEach(btn=> btn.addEventListener('click', async ()=>{
+      if(!confirm('Delete this comment?')) return;
+      const idx=+btn.dataset.idx; const obj=items.find(x=>x.id===focusId);
+      obj.comments.splice(idx,1); obj.updatedAt=Date.now(); await put(obj); renderComments(obj);
+    }));
+  }
+
+  function toggleSolutionEditor(show){ solutionEditor.style.display = show? 'block':'none'; solutionInput.value = (items.find(x=>x.id===focusId)?.solution)||''; }
+  async function saveSolution(){ const obj=items.find(x=>x.id===focusId); if(!obj) return; obj.solution = solutionInput.value.trim(); obj.updatedAt=Date.now(); await put(obj); fSolution.textContent=obj.solution; toggleSolutionEditor(false); }
+  async function clearSolution(){ if(!confirm('Clear solution?')) return; const obj=items.find(x=>x.id===focusId); if(!obj) return; obj.solution=''; obj.updatedAt=Date.now(); await put(obj); fSolution.textContent=''; toggleSolutionEditor(true); }
+
+  function renderHistory(it){
+    const sess=it.sessions||[]; const total=Math.floor(sess.reduce((a,b)=>a+(b.durationSec||0),0));
+    const days=new Set(sess.map(s=> fmtDate(s.start)));
+    historyBox.innerHTML = sess.length
+      ? `Sessions: ${sess.length} · Total: ${fmtMin(total)} · Days practiced: ${days.size}<br>`+
+        sess.slice().reverse().slice(0,10).map(s=>`• ${new Date(s.start).toLocaleString()} — ${fmtMin(s.durationSec||0)}`).join('<br>')
+      : '<span style="color:var(--text-dim)">No sessions logged yet.</span>';
+  }
+
+  function renderClock(){ clock.textContent = fmtMin(elapsed); }
+  function toggleTimer(){ if(ticking){ stopTimer(true); } else { tickStart=Date.now(); ticking=true; btnStartStop.textContent='Pause'; timer=setInterval(()=>{ elapsed = Math.floor((Date.now()-tickStart)/1000); renderClock(); }, 250); } }
+  async function stopTimer(save){ if(timer){ clearInterval(timer); timer=null; }
+    if(ticking){ elapsed = Math.floor((Date.now()-tickStart)/1000); renderClock(); }
+    ticking=false; btnStartStop.textContent='Start'; if(save && focusId){ await logSession(false); } }
+  async function logSession(ask){ if(focusId && elapsed>0){ const it=items.find(x=>x.id===focusId); const now=Date.now(); it.sessions = (it.sessions||[]).concat([{start: now - elapsed*1000, end: now, durationSec: elapsed}]); it.updatedAt=now; await put(it); renderHistory(it); if(ask){ alert('Session logged.'); } elapsed=0; renderClock(); } }
+
+  // Stats view
+  function showStats(){
+    viewGrid.classList.add('hide'); viewFocus.classList.add('hide'); viewStats.classList.remove('hide');
+    const dayMap = new Map(); // date -> {seconds, problemIds:Set}
+    let totalSec=0, totalSessions=0;
+    for(const it of items){
+      const sess=it.sessions||[];
+      for(const s of sess){
+        const d=fmtDate(s.start||Date.now());
+        if(!dayMap.has(d)) dayMap.set(d,{seconds:0, ids:new Set()});
+        const obj=dayMap.get(d);
+        const sec = Math.floor(s.durationSec||0);
+        obj.seconds += sec; obj.ids.add(it.id); totalSec += sec; totalSessions += 1;
+      }
+    }
+    const rows=[...dayMap.entries()].map(([d,v])=>({date:d, minutes:Math.floor(v.seconds/60), problems:v.ids.size})).sort((a,b)=> a.date.localeCompare(b.date));
+    // summary
+    statTotalTime.textContent = fmtMin(totalSec);
+    statTotalSessions.textContent = totalSessions;
+    statDays.textContent = rows.length;
+    // bars (last 30 days)
+    const last30 = rows.slice(-30);
+    const maxMin = Math.max(30, ...last30.map(r=>r.minutes));
+    bars.innerHTML = last30.length ? last30.map(r=>`<div class="barrow"><div class="label">${r.date}</div><div class="bar" style="width:${(r.minutes/maxMin*100).toFixed(1)}%"></div><div style="width:60px;text-align:right">${r.minutes}m</div><div style="width:90px;text-align:right">${r.problems} prob</div></div>`).join('') : '<div style="color:var(--text-dim)">No practice yet.</div>';
+    // table
+    tableStats.innerHTML = rows.length ? (`<thead><tr><th>Date</th><th>Minutes</th><th>Problems</th></tr></thead>` + `<tbody>` + rows.map(r=>`<tr><td>${r.date}</td><td>${r.minutes}</td><td>${r.problems}</td></tr>`).join('') + `</tbody>`) : '';
+  }
+
+  // Export / Import (robust)
+  function exportJSON(){ all().then(arr=>{ const blob=new Blob([JSON.stringify({v:2,exportedAt:new Date().toISOString(),items:arr},null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='qr-wrongbook-backup.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 4000); }); }
+  function importJSON(ev){ const file=ev.target.files[0]; if(!file) return; const fr=new FileReader(); fr.onload=async ()=>{ try{ let data=JSON.parse(fr.result); let arr = Array.isArray(data)? data : (Array.isArray(data.items)? data.items : []); if(!Array.isArray(arr)) throw new Error('Invalid file'); const now=Date.now(); for(const it of arr){ const rec={...it}; if(!rec.id) rec.id=genId(); if(!rec.sessions) rec.sessions=[]; if(!rec.comments) rec.comments=[]; rec.createdAt = rec.createdAt || now; rec.updatedAt = now; await put(rec); } await load(); alert('Import done.'); }catch(err){ alert('Import failed: '+err.message); } finally { ev.target.value=''; } }; fr.readAsText(file); }
+
+  // Image viewer helpers
+  function openViewer(src){ imgFull.src=src; imgDlg.showModal(); setTimeout(()=>fit(), 30); }
+  function applyTransform(){ imgFull.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`; }
+  function fit(){ const vw=Math.min(window.innerWidth*0.9, 1400); const vh=Math.min(window.innerHeight*0.9, 900); const tmp=new Image(); tmp.onload=()=>{ const rx=vw/tmp.naturalWidth; const ry=vh/tmp.naturalHeight; scale=Math.min(rx,ry); originX=originY=0; applyTransform(); }; tmp.src=imgFull.src; }
+  function zoom(delta){ scale = Math.max(0.1, Math.min(8, scale*(delta>0?1.2:1/1.2))); applyTransform(); }
+
+  // Expose to location hash
+  function showGrid(){ viewFocus.classList.add('hide'); viewStats.classList.add('hide'); viewGrid.classList.remove('hide'); stopTimer(false); }
+  window.routeFromHash = routeFromHash;
+
+})();
+</script>
+</body>
+</html>
