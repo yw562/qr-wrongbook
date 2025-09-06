@@ -1,0 +1,125 @@
+The QR Wrongbook app supports bulk importing questions using a JSON file.
+This lets you prepare many problems at once (Math, Code, ML, etc.) with a large language model (LLM) or script, then load them directly into the app.
+
+1. Import Format
+
+The app accepts either:
+
+Wrapped object:
+
+{
+  "v": 2,
+  "exportedAt": "2025-09-06T14:00:00.000Z",
+  "items": [ ...records ]
+}
+
+
+Plain array:
+
+[ ...records ]
+
+
+Both work.
+
+Record Schema
+
+Each record must contain:
+
+Field	Required	Allowed Values / Notes
+title	✅	Short searchable string
+category	✅	"Code", "Math", "Behavior question", "Machine Learning"
+difficulty	✅	"Easy", "Medium", "Hard", "Deadly"
+mastery	✅	"Not at all", "A bit", "Slightly unsure", "Calculation error", "Mastered"
+source	❌	String (e.g. “Citadel pad / book / link”)
+question	❌	Full problem statement
+tags	❌	Array of strings
+hint	❌	Key observation / first step
+solution	❌	Clean solution text / code
+images	❌	Array of { "name": string, "dataUrl": string } (must be base64 data URIs if included)
+comments	❌	Array of { "ts": <ms>, "text": string }
+sessions	❌	Array of { "start": <ms>, "end": <ms>, "durationSec": <int> }
+
+⚠️ Minimal valid record = title + category + difficulty + mastery.
+
+2. Example Import File
+{
+  "v": 2,
+  "exportedAt": "2025-09-06T14:00:00.000Z",
+  "items": [
+    {
+      "title": "Two-sum with streaming updates",
+      "source": "LeetCode + interview pad",
+      "question": "Design a structure that supports add(num) and find(target)...",
+      "category": "Code",
+      "difficulty": "Medium",
+      "mastery": "Slightly unsure",
+      "tags": ["hashmap", "design"],
+      "hint": "Store counts in a hashmap; for each x check target - x.",
+      "solution": "Maintain Map<int,int> cnt; find iterates keys...",
+      "comments": [],
+      "sessions": []
+    },
+    {
+      "title": "MLE of Poisson rate",
+      "source": "Stats notes",
+      "question": "Given x1..xn ~ Poisson(λ), find the MLE of λ.",
+      "category": "Math",
+      "difficulty": "Easy",
+      "mastery": "Mastered",
+      "tags": ["MLE", "Poisson"],
+      "hint": "Differentiate log-likelihood wrt λ.",
+      "solution": "λ̂ = sample mean.",
+      "comments": [],
+      "sessions": []
+    }
+  ]
+}
+
+
+Save this as import.json, then load it with the Import button in the app.
+
+3. Using LLMs to Auto-Generate Import Files
+
+You can ask ChatGPT/Claude/etc. to transform a batch of problems into this JSON format.
+Here’s a ready-to-use prompt template:
+
+You are a strict data transformer. Convert the problems below into EXACTLY the JSON import format for the “QR Wrongbook” app (v1.1).
+
+- Allowed categories: "Code", "Math", "Behavior question", "Machine Learning"
+- Allowed difficulties: "Easy", "Medium", "Hard", "Deadly"
+- Allowed mastery: "Not at all", "A bit", "Slightly unsure", "Calculation error", "Mastered"
+- Only output raw JSON (no markdown fences, no extra text).
+- Minimal required fields: title, category, difficulty, mastery.
+- If something is missing, use defaults: category=Math, difficulty=Medium, mastery=A bit.
+
+---- INPUT (user problems start below this line) ----
+<PASTE YOUR PROBLEMS HERE>
+
+Example Input for the Prompt
+### Title: Bayes factor for coin bias
+Source: Own derivation
+Category: Machine Learning
+Difficulty: Hard
+Mastery: A bit
+Tags: bayes, model selection
+Question:
+Compare H0:p=0.5 vs H1:p~Beta(1,1) after k heads in n flips.
+Hint:
+Integrate marginal likelihood under H1.
+Solution:
+BF = 0.5^n * (n+1) * C(n,k).
+
+
+The model will return valid JSON → save → Import.
+
+4. Troubleshooting
+
+“Unexpected token …” error → Your JSON includes markdown code fences (```), remove them.
+
+Enums not matching → Ensure category/difficulty/mastery use exact casing.
+
+Huge batch truncation → Ask the LLM to output a wrapped object {v:2,...} with all items, not multiple chunks.
+
+Images → Only include if you have base64 data URLs; otherwise omit.
+
+👉 With this workflow, you can feed dozens of math/ML/code/behavior questions to an LLM, get a ready-to-import JSON, and load them directly into QR Wrongbook v1.1.
