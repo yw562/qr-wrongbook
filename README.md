@@ -209,7 +209,3 @@ MIT License — free to use, share, hack on.
 ---
 
 ✨ Simple by design: just two files. Clone, open, start practicing.
-
----
-
-Would you like me to also draft a **short GitHub repo tagline + topics** (so your repo shows up in search/discovery for “quant interview prep”, “local-first”, “wrongbook”)?
