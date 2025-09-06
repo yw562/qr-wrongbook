@@ -1,0 +1,19 @@
+{
+  "v": 2,
+  "exportedAt": "2025-09-06T00:00:00.000Z",
+  "items": [
+    {
+      "title": "Sample Problem — Replace me",
+      "source": "Demo source",
+      "question": "Write your problem statement here.",
+      "category": "Math",
+      "difficulty": "Medium",
+      "mastery": "A bit",
+      "tags": ["demo", "sample"],
+      "hint": "You can add an optional hint here.",
+      "solution": "And an optional solution here.",
+      "comments": [],
+      "sessions": []
+    }
+  ]
+}
