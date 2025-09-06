@@ -1,0 +1,488 @@
+<!--
+AI Mistake Notebook — Final Single-File Version
+Author: Claire (with ChatGPT)
+How to use:
+1) Save as index.html
+2) Double-click to open in Chrome/Edge
+3) Paste a problem, click "Analyze & Save"
+All data is stored in localStorage. Export/Import supported.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Mistake Notebook — Final</title>
+  <!-- Tailwind (CDN) for quick styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cytoscape for the knowledge graph -->
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+    <!-- Header -->
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">AI Mistake Notebook</h1>
+      <div class="text-sm text-slate-500">Local • Offline • Unlimited</div>
+    </header>
+
+    <!-- Top controls: input + graph -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Left: Input panel -->
+      <div class="lg:col-span-2 bg-white rounded-2xl shadow p-4 space-y-3">
+        <label for="problemInput" class="font-semibold">Problem (paste text, code, or math):</label>
+        <textarea id="problemInput" class="w-full h-40 border rounded-lg p-3 font-mono text-sm" placeholder="Paste your problem statement here..."></textarea>
+
+        <label for="answerInput" class="font-semibold">Answer / Your attempt (optional):</label>
+        <textarea id="answerInput" class="w-full h-24 border rounded-lg p-3 font-mono text-sm" placeholder="Paste the official solution or your attempt to improve summaries."></textarea>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-sm font-medium">Type:</label>
+            <select id="typeSelect" class="border rounded-lg p-2 text-sm">
+              <option value="auto">Auto-detect</option>
+              <option value="code">Code</option>
+              <option value="math">Math</option>
+              <option value="ml">ML</option>
+            </select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium">Manual concepts (optional):</label>
+            <input id="manualConcepts" class="w-full border rounded-lg p-2 text-sm" placeholder="comma-separated, e.g., size-biased sampling, Horvitz–Thompson"/>
+          </div>
+          <div class="flex items-end gap-2">
+            <button id="analyzeBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Analyze & Save</button>
+            <button id="clearBtn" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Graph + tools -->
+      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">Knowledge Graph</h2>
+          <div class="flex gap-2">
+            <button id="importBtn" class="px-3 py-1.5 text-sm bg-slate-700 text-white rounded-lg hover:bg-black">Import JSON</button>
+            <button id="exportBtn" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Export JSON</button>
+            <button id="resetBtn" class="px-3 py-1.5 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-700">Reset All</button>
+          </div>
+        </div>
+        <div id="graph" class="w-full h-64 border rounded-lg"></div>
+        <div class="text-xs text-slate-500">Node size = frequency. Color: Code=Blue, Math=Purple, ML=Green.</div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="bg-white rounded-2xl shadow p-4">
+      <div class="flex flex-wrap items-end gap-3">
+        <div>
+          <label class="block text-sm font-medium">Filter by type:</label>
+          <select id="filterType" class="border rounded-lg p-2 text-sm">
+            <option value="all">All</option>
+            <option value="code">Code</option>
+            <option value="math">Math</option>
+            <option value="ml">ML</option>
+          </select>
+        </div>
+        <div class="grow">
+          <label class="block text-sm font-medium">Search (concept/text):</label>
+          <input id="searchInput" class="w-full border rounded-lg p-2 text-sm" placeholder="e.g., enumerate or eigenvalue"/>
+        </div>
+        <button id="applyFilterBtn" class="px-3 py-2 bg-slate-800 text-white rounded-lg hover:bg-black">Apply</button>
+      </div>
+    </section>
+
+    <!-- Cards -->
+    <section id="cards" class="space-y-4"></section>
+  </div>
+
+  <script>
+    // ------------------------
+    // Utilities & persistence
+    // ------------------------
+    const STORAGE_KEY = 'mistake-notebook-state-v2'
+    const STOP = new Set(['the','a','an','and','or','to','of','in','on','for','is','are','was','were','be','with','that','this','it','as','at','by','from','into','your','my','our','their'])
+
+    function uid(){ return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8) }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        if (!raw) return { problems: [], graph: { nodes: {}, edges: {} } }
+        return JSON.parse(raw)
+      } catch {
+        return { problems: [], graph: { nodes: {}, edges: {} } }
+      }
+    }
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) }
+    let state = loadState()
+
+    // ------------------------
+    // Type detection (heuristic)
+    // ------------------------
+    function detectType(text) {
+      const s = (text || '').toLowerCase()
+      if (/(\bdef\b|lambda|numpy|np\.|pandas|sklearn|indexerror|keyerror|for\s*\(|enumerate|list\s*comp)/.test(s)) return 'code'
+      if (/(eigen|matrix|gradient|integral|derivative|probability|log\s*loss|variance|expectation|sigma|sum\b|clan|survey)/.test(s)) return 'math'
+      if (/(overfitting|regularization|cross[-\s]?entropy|auc|roc|svm|bayes|bias-variance|precision|recall)/.test(s)) return 'ml'
+      return 'code'
+    }
+
+    // ------------------------
+    // Concept extraction (heuristic + special for Clan Size)
+    // ------------------------
+    function extractConcepts(text, type) {
+      const s = (text || '').toLowerCase()
+      const dict = {
+        code: [
+          'enumerate','list comprehension','zip','tuple unpack','indexing','off-by-one','time complexity',
+          'numpy broadcasting','pandas groupby','sklearn pipeline','dict vs set','generator','recursion'
+        ],
+        math: [
+          'eigenvalue','eigendecomposition','gradient','chain rule','log loss','variance','expectation',
+          'matrix inversion','convexity','l2 norm','rank','trace','conditioning',
+          'sampling bias','size-biased sampling','inverse probability weighting','horvitz–thompson','unbiased estimator','survey sampling'
+        ],
+        ml: [
+          'overfitting','regularization','cross entropy','auc','roc','bayes rule','bias-variance','precision','recall','f1 score','calibration'
+        ]
+      }
+      const base = dict[type] || dict.code
+      const hits = []
+      for (const k of base) {
+        const key = k.split(' ')[0]
+        if (s.includes(key)) hits.push(k)
+      }
+      // Special handling for Clan Size / friendship paradox style
+      if (type === 'math' && /(clan|friend|survey|average size|respondent|sample|sampling)/.test(s)) {
+        for (const k of ['size-biased sampling','inverse probability weighting','horvitz–thompson','unbiased estimator','sampling bias']) {
+          if (!hits.includes(k)) hits.push(k)
+        }
+      }
+      if (hits.length === 0) {
+        const tokens = s.replace(/[^a-z0-9_\s]/g, ' ')
+                        .split(/\s+/)
+                        .filter(w => w && !STOP.has(w) && w.length > 2)
+        const freq = new Map()
+        for (const w of tokens) freq.set(w, (freq.get(w) || 0) + 1)
+        const top = [...freq.entries()].sort((a,b) => b[1]-a[1]).slice(0, 5).map(([w]) => w)
+        return top
+      }
+      return [...new Set(hits)].slice(0, 6)
+    }
+
+    function makeSummary(type, concepts) {
+      if (type === 'code') {
+        if (concepts.some(c => c.includes('enumerate'))) return 'enumerate returns (index, value); unpack in that order.'
+        if (concepts.some(c => c.includes('index'))) return 'Check indexing and off-by-one; validate boundaries and lengths.'
+        if (concepts.some(c => c.includes('numpy'))) return 'Mind NumPy broadcasting rules and array shapes.'
+        return `Focus on ${concepts[0] || 'the core logic'} and verify edge cases.`
+      }
+      if (type === 'math') {
+        if (concepts.some(c => c.includes('eigen'))) return 'Use eigendecomposition assumptions and verify matrix dimensions.'
+        if (concepts.some(c => c.includes('gradient'))) return 'Apply gradient rules carefully; watch the chain rule.'
+        if (concepts.some(c => c.includes('horvitz'))) return 'Correct size bias using inverse probability weighting (Horvitz–Thompson).'
+        if (concepts.some(c => c.includes('log loss'))) return 'Recall log-loss definition and avoid log(0) with clipping.'
+        return `Identify the governing definition and apply it to ${concepts[0] || 'the target quantity'}.`
+      }
+      if (type === 'ml') {
+        if (concepts.some(c => c.includes('overfitting'))) return 'Reduce variance with regularization or more data; validate on holdout.'
+        if (concepts.some(c => c.includes('auc') || c.includes('roc'))) return 'Interpret ROC–AUC correctly; compare across thresholds.'
+        if (concepts.some(c => c.includes('cross entropy'))) return 'Use stable cross-entropy; clip probabilities to avoid NaNs.'
+        return `Align loss, metric, and data distribution for ${concepts[0] || 'the task'}.`
+      }
+      return 'Identify the core concept and apply the definition.'
+    }
+
+    function makeExplain(type) {
+      if (type === 'code') return 'Reproduce the bug, isolate the failing line, check indices/shapes, and write a minimal fix. Add a test.'
+      if (type === 'math') return 'If sampling is involved, reweight by inclusion probabilities (Horvitz–Thompson) to get an unbiased estimate.'
+      if (type === 'ml') return 'Confirm data split, choose appropriate loss/baseline, regularize to control variance, validate on holdout.'
+      return 'Review the definition, verify steps, and test with a small example.'
+    }
+
+    function difficultyScore(concepts){ return Math.min(1, 0.25 + (concepts?.length || 0) * 0.12) }
+
+    function triageHeuristic(rawText, answerText, typeHint) {
+      const type = (typeHint && typeHint !== 'auto') ? typeHint : detectType((rawText||'') + (answerText||''))
+      const concepts = extractConcepts(rawText + ' ' + (answerText||''), type)
+      const summary = makeSummary(type, concepts)
+      const explain = makeExplain(type)
+      const difficulty = difficultyScore(concepts)
+      return { type, concepts, summary, explain, difficulty }
+    }
+
+    // ------------------------
+    // Graph helpers
+    // ------------------------
+    function mergeGraph(concepts, type) {
+      state.graph.nodes ||= {}; state.graph.edges ||= {}
+      for (const c of new Set(concepts || [])) {
+        const key = c.toLowerCase()
+        const node = state.graph.nodes[key] || { id: key, weight: 0, type }
+        node.weight += 1
+        node.type = node.type || type
+        state.graph.nodes[key] = node
+      }
+      // Edges: co-occurrence (optional; skip for performance in MVP)
+    }
+
+    function buildCyElements() {
+      const nodes = []
+      for (const id in state.graph.nodes) {
+        const n = state.graph.nodes[id]
+        nodes.push({ data: { id, type: n.type, weight: n.weight } })
+      }
+      return nodes
+    }
+
+    let cy = null
+    function renderGraph() {
+      const container = document.getElementById('graph')
+      const elements = buildCyElements()
+      if (cy) cy.destroy()
+      cy = cytoscape({
+        container,
+        elements,
+        layout: { name: 'cose', animate: false },
+        style: [
+          { selector: 'node', style: {
+            'label': 'data(id)',
+            'font-size': '10px',
+            'background-color': ele => {
+              const t = ele.data('type')
+              if (t === 'code') return '#3b82f6'
+              if (t === 'math') return '#8b5cf6'
+              if (t === 'ml')   return '#10b981'
+              return '#64748b'
+            },
+            'width': ele => 12 + 6 * Math.sqrt(ele.data('weight') || 1),
+            'height': ele => 12 + 6 * Math.sqrt(ele.data('weight') || 1),
+            'color': '#fff',
+            'text-valign': 'center',
+            'text-halign': 'center'
+          }}
+        ]
+      })
+      cy.on('tap', 'node', evt => {
+        document.getElementById('searchInput').value = evt.target.id()
+        applyFilters()
+      })
+    }
+
+    // ------------------------
+    // UI rendering (cards)
+    // ------------------------
+    function tag(label, className) {
+      const span = document.createElement('span')
+      span.className = `inline-block text-xs px-2 py-0.5 rounded-full ${className}`
+      span.textContent = label
+      return span
+    }
+
+    function renderCards() {
+      const list = document.getElementById('cards')
+      list.innerHTML = ''
+
+      const typeFilter = document.getElementById('filterType').value
+      const q = document.getElementById('searchInput').value.trim().toLowerCase()
+
+      const items = [...state.problems].sort((a,b) => b.createdAt - a.createdAt)
+      for (const p of items) {
+        if (typeFilter !== 'all' && p.type !== typeFilter) continue
+        const hay = (p.raw + ' ' + (p.concepts||[]).join(' ') + ' ' + (p.note||'')).toLowerCase()
+        if (q && !hay.includes(q)) continue
+
+        const card = document.createElement('div')
+        card.className = 'bg-white rounded-2xl shadow p-4 space-y-3'
+
+        const head = document.createElement('div')
+        head.className = 'flex items-center justify-between'
+        const left = document.createElement('div')
+        const color = p.type === 'code' ? 'bg-blue-100 text-blue-700'
+                    : p.type === 'math' ? 'bg-purple-100 text-purple-700'
+                    : 'bg-emerald-100 text-emerald-700'
+        left.appendChild(tag(p.type.toUpperCase(), color))
+        const time = document.createElement('div')
+        time.className = 'text-xs text-slate-500'
+        time.textContent = new Date(p.createdAt).toLocaleString()
+        head.appendChild(left); head.appendChild(time)
+
+        // Concepts editable
+        const conceptRow = document.createElement('div')
+        conceptRow.className = 'flex flex-wrap items-center gap-2'
+        const conceptInput = document.createElement('input')
+        conceptInput.className = 'border rounded-lg p-2 text-xs grow'
+        conceptInput.value = (p.concepts||[]).join(', ')
+        conceptInput.placeholder = 'concepts (comma-separated)'
+        const conceptSave = document.createElement('button')
+        conceptSave.className = 'px-2 py-1 text-xs bg-slate-800 text-white rounded'
+        conceptSave.textContent = 'Save concepts'
+        conceptSave.onclick = () => {
+          p.concepts = conceptInput.value.split(',').map(s=>s.trim()).filter(Boolean)
+          mergeGraph(p.concepts, p.type)
+          saveState(); renderGraph(); renderCards()
+        }
+        conceptRow.appendChild(conceptInput); conceptRow.appendChild(conceptSave)
+
+        // Insight & Explain
+        const insight = document.createElement('div')
+        insight.className = 'font-medium'
+        insight.textContent = 'Insight: ' + (p.summary || '(add your own)')
+        const expl = document.createElement('p')
+        expl.className = 'text-sm text-slate-700'
+        expl.textContent = p.explain
+
+        // Study fields: Hint / Solution / Note
+        const grid = document.createElement('div')
+        grid.className = 'grid grid-cols-1 md:grid-cols-3 gap-3'
+
+        const hint = document.createElement('textarea')
+        hint.className = 'border rounded-lg p-2 text-xs h-24'
+        hint.placeholder = 'Hint'
+        hint.value = p.hint || ''
+
+        const solution = document.createElement('textarea')
+        solution.className = 'border rounded-lg p-2 text-xs h-24'
+        solution.placeholder = 'Solution (your cleaned solution)'
+        solution.value = p.solution || (p.ans || '')
+
+        const note = document.createElement('textarea')
+        note.className = 'border rounded-lg p-2 text-xs h-24'
+        note.placeholder = 'Notes (why you missed it / traps)'
+        note.value = p.note || ''
+
+        grid.appendChild(hint); grid.appendChild(solution); grid.appendChild(note)
+
+        const saveBtn = document.createElement('button')
+        saveBtn.className = 'px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700'
+        saveBtn.textContent = 'Save card'
+        saveBtn.onclick = () => {
+          p.hint = hint.value
+          p.solution = solution.value
+          p.note = note.value
+          saveState(); renderCards()
+        }
+
+        // Show original + answer
+        const det = document.createElement('details')
+        const sum = document.createElement('summary')
+        sum.className = 'cursor-pointer text-sm text-slate-600'
+        sum.textContent = 'Show original & answer'
+        const pre = document.createElement('pre')
+        pre.className = 'bg-slate-50 border rounded p-3 overflow-auto text-xs'
+        pre.textContent = p.raw + (p.ans ? "\n\n--- Answer/Attempt ---\n" + p.ans : '')
+        det.appendChild(sum); det.appendChild(pre)
+
+        // Assemble
+        card.appendChild(head)
+        card.appendChild(conceptRow)
+        card.appendChild(insight)
+        card.appendChild(expl)
+        card.appendChild(grid)
+        card.appendChild(saveBtn)
+        card.appendChild(det)
+        list.appendChild(card)
+      }
+    }
+
+    // ------------------------
+    // Actions
+    // ------------------------
+    function applyFilters(){ renderCards() }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'mistake-notebook.json'; a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    function importJson() {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'application/json'
+      input.onchange = () => {
+        const file = input.files?.[0]
+        if (!file) return
+        const reader = new FileReader()
+        reader.onload = e => {
+          try {
+            const data = JSON.parse(e.target.result)
+            if (data && data.problems && data.graph) {
+              state = data; saveState(); renderGraph(); renderCards()
+            } else {
+              alert('Invalid JSON format.')
+            }
+          } catch {
+            alert('Failed to parse JSON.')
+          }
+        }
+        reader.readAsText(file)
+      }
+      input.click()
+    }
+
+    function resetAll() {
+      if (!confirm('This will clear all saved problems and the graph. Continue?')) return
+      state = { problems: [], graph: { nodes: {}, edges: {} } }
+      saveState(); renderGraph(); renderCards()
+    }
+
+    async function analyzeAndSave() {
+      const raw = document.getElementById('problemInput').value
+      const ans = document.getElementById('answerInput').value
+      const typeHint = document.getElementById('typeSelect').value
+      if (!raw.trim()) { alert('Please paste a problem first.'); return }
+
+      // Heuristic analysis (free, offline)
+      const triage = triageHeuristic(raw, ans, typeHint)
+
+      // Manual concepts override (if provided)
+      const manual = document.getElementById('manualConcepts').value.trim()
+      const concepts = manual ? manual.split(',').map(s=>s.trim()).filter(Boolean) : (triage.concepts || [])
+
+      const rec = {
+        id: uid(),
+        raw,
+        ans,
+        type: triage.type,
+        concepts,
+        summary: triage.summary || '',
+        explain: triage.explain || '',
+        hint: '',
+        solution: ans || triage.explain || '',
+        note: '',
+        difficulty: typeof triage.difficulty === 'number' ? triage.difficulty : 0.4,
+        createdAt: Date.now()
+      }
+
+      state.problems.push(rec)
+      mergeGraph(rec.concepts, rec.type)
+      saveState(); renderGraph(); renderCards()
+    }
+
+    function clearInput() {
+      document.getElementById('problemInput').value = ''
+      document.getElementById('answerInput').value = ''
+      document.getElementById('manualConcepts').value = ''
+    }
+
+    // ------------------------
+    // Wire up
+    // ------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('analyzeBtn').addEventListener('click', analyzeAndSave)
+      document.getElementById('clearBtn').addEventListener('click', clearInput)
+      document.getElementById('applyFilterBtn').addEventListener('click', applyFilters)
+      document.getElementById('exportBtn').addEventListener('click', exportJson)
+      document.getElementById('importBtn').addEventListener('click', importJson)
+      document.getElementById('resetBtn').addEventListener('click', resetAll)
+
+      renderGraph(); renderCards()
+    })
+  </script>
+</body>
+</html>
