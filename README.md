@@ -1,211 +1,153 @@
+# Wrongbook Suite
 
-# QR Wrongbook
-
-> A local-first “wrong question notebook” for quant & QR interview prep.
-> Single-file, privacy-friendly, no backend, runs anywhere.
-
-* 🗃️ **Local-first** — data stored entirely in your browser (IndexedDB), works offline
-* 🧠 **Rich metadata** — category (Code / Math / Behavior question / Machine Learning), difficulty (Easy → Deadly), mastery (Not at all → Mastered)
-* 🖼️ **Screenshot support** — drag & drop, file picker, or paste (Ctrl/Cmd+V)
-* 🧪 **Focus practice mode** — full-screen single question view with collapsible Hint/Solution, timer, and practice log
-* 💬 **Comments** — add & delete (with confirmation)
-* 📊 **Stats dashboard** — total study time, sessions, practiced days, last 30 days daily chart
-* 🔎 **Search & filter** — full-text, multi-select filters, sorting
-* 🎨 **Themes** — Light / Dark / Green + soft translucent gradient header
-* 🔐 **Backup/restore** — one-click Export / Import (JSON)
+> A local-first toolkit for learning from mistakes — from quant interview prep to AI-powered knowledge graphs.
 
 ---
 
-## 1. Quick start
+## 🌐 Live Demo
+Try the apps directly in your browser — no installation needed:
 
+- **[QR Wrongbook (recommended)](https://yw562.github.io/qr-wrongbook/qr_wrongbook_v1.1.html)**  
+  A feature-rich, local-first wrong question notebook tailored for quant & QR interview prep.
+
+- **[AI Mistake Notebook (experimental)](https://yw562.github.io/qr-wrongbook/ai-mistake-notebook-v1.1.html)**  
+  A lightweight mistake analyzer for code/math/ML with automatic concept extraction and knowledge graph insights.
+
+---
+
+## 📖 Overview
+You can use either of the two HTML files included in this repository:
+- **`qr_wrongbook_v1.1.html`** → the recommended, feature-rich version for quant & QR interview prep.
+- **`ai-mistake-notebook-v1.1.html`** → the experimental version focusing on code/math/ML with knowledge graph insights.
+
+Simply download the file you want, then double‑click it to open in your browser — no installation needed.
+This project combines two complementary tools:
+- **QR Wrongbook** — a rich, feature-complete wrong question notebook designed for **quant & QR interview preparation**.
+- **AI Mistake Notebook** — a lightweight, extensible notebook for **code, math, and ML mistakes**, featuring automatic concept extraction and a knowledge graph.
+
+Both are **single-file, offline-first apps**: no backend, no tracking, just open in your browser.
+
+---
+
+## 🔹 Module A: QR Wrongbook
+> A local-first “wrong question notebook” for quant & QR interview prep.
+
+### Features
+* 🗃️ **Local-first** — data stored entirely in your browser (IndexedDB), works offline
+* 🧠 **Rich metadata** — category (Code / Math / Behavior / Machine Learning), difficulty (Easy → Deadly), mastery (Not at all → Mastered)
+* 🖼️ **Screenshot support** — drag & drop, paste, or file picker
+* 🧪 **Focus practice mode** — full-screen practice view, collapsible Hint/Solution, timer, and logs
+* 💬 **Comments** — add & delete with confirmation
+* 📊 **Stats dashboard** — study time, sessions, 30-day charts
+* 🔎 **Search & filter** — full-text, multi-select filters, sorting
+* 🎨 **Themes** — Light / Dark / Green gradient header
+* 🔐 **Backup/restore** — Export/Import JSON
+
+### Quick Start
 ```bash
 # Clone
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
-
-# Or: create a new GitHub repo → upload index.html + README.md
+git clone https://github.com/yw562/qr-wrongbook.git
+cd qr-wrongbook
 
 # Local use
-# Just double-click index.html and open it in Chrome/Firefox/Edge/Safari
+# Just double-click index.html in Chrome/Firefox/Edge/Safari
 ```
 
-> No Node.js, no backend, no build tools. It’s a **single static file**.
+### Deploy on GitHub Pages
+1. Push `index.html` + `README.md` to the `main` branch.
+2. Settings → Pages → Deploy from branch → `main` / root (`/`).
+3. Live at `https://yw562.github.io/qr-wrongbook/`.
 
 ---
 
-## 2. Deploy on GitHub Pages
+## 🔹 Module B: AI Mistake Notebook
+> A lightweight notebook for code, math, and ML mistakes with knowledge graph insights.
 
-1. Push `index.html` and `README.md` to the `main` branch of your repo.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**:
+### Features
+- Input problem + optional answer/attempt.
+- Auto/manual type detection (`code`, `math`, `ml`).
+- Auto-generate **concepts**, **insight**, **explanation**, **solution sketch**.
+- Unlimited storage in `localStorage`.
+- Knowledge graph (node frequency & color by type).
+- **Import/Export JSON**.
+- Optional: integrate local **Ollama LLM** for richer analysis.
 
-   * Source: `Deploy from a branch`
-   * Branch: `main` / root (`/`)
-4. Save. After a short while, your site will be live at:
-   `https://<your-username>.github.io/<your-repo>/`
+### Example Concepts
+- *Math*: `size-biased sampling`, `Horvitz–Thompson`, `unbiased estimator`
+- *Code*: `enumerate`, `indexing`, `off-by-one`
+- *ML*: `overfitting`, `ROC–AUC`, `cross entropy`
 
----
-
-## 3. Usage
-
-### Add Problem
-
-* Top navigation → **Add Problem**
-* Required:
-
-  * **Title**
-  * **Category**: Code / Math / Behavior question / Machine Learning
-  * **Difficulty**: Easy / Medium / Hard / Deadly
-  * **Mastery**: Not at all / A bit / Slightly unsure / Calculation error / Mastered
-* Optional: Source, tags, Hint, Solution, screenshots
-
-### Grid View
-
-* Search box: full-text (title, body, tags)
-* Filters: category / difficulty / mastery (multi-select)
-* Sorting: newest, oldest, difficulty, mastery, category
-* Cards show title, metadata, preview images
-* Buttons: **Practice** (focus mode), **Edit**, **Mark Mastered / Unmark**, **Delete**
-
-### Focus View
-
-* Title, metadata, full question, images (click to enlarge)
-* **Hint / Solution** sections are collapsible
-* **Solution editor**: edit / save / clear
-* **Comments**: add or delete (with confirmation)
-* **Practice & Time**: start/pause/reset/log, sessions recorded per question
-
-**Image viewer:** zoom, pan, fit, 100%, close
-
-### Stats View
-
-* Summary: total study time, total sessions, distinct days
-* Last 30 days: bar chart (minutes/day, problems/day) + table
-
-### Theme
-
-* Right-hand dropdown: Light / Dark / Green
-* Soft pastel gradient header (blue → aqua → mint, 92% opacity)
-* Theme preference stored in localStorage
+### Optional LLM (Ollama)
+```bash
+# Install Ollama
+brew install ollama
+ollama pull llama3.1:8b-instruct
+ollama serve
+```
+Check **Use Local LLM (Ollama)** in UI.
 
 ---
 
-## 4. Data & Backup
+## 📥 Bulk Import / Export
+The QR Wrongbook app supports exporting and importing problems as JSON files, so you can back up your data or add many questions at once.
 
-### Storage
+- **Export** → Use the Export button in the app to download all your problems as a JSON file.  
+- **Import** → Use the Import button and select a JSON file in the correct format.
 
-* All problems, screenshots, comments, and sessions live in **IndexedDB**
-* 100% local, offline-friendly
+### Ready-to-use helpers
+- **BULK_IMPORT.md** — full guide on how to structure import files (schema, examples, and an LLM prompt template for auto-generation).  
+- **starter_import.json** — a sample JSON file with one demo problem. You can copy, replace, or expand it to create your own batch of problems.
 
-### Export / Import
+### Typical workflow
+1. Write problems in plain text (Math, Code, ML, Behavioral).  
+2. Convert them into the JSON format (see **BULK_IMPORT.md** or generate with an LLM).  
+3. Save the JSON as a file.  
+4. Click **Import** in the app and select it.  
+5. Done 🎉 — all problems are added locally in your browser.
 
-* **Export**: download `qr-wrongbook-backup.json`
-* **Import**: upload the JSON to restore/merge
-* Compatible with both `{"items": [...]}` and plain array format
+---
 
-### Backup file structure (excerpt)
+## 🔮 Roadmap
+- Richer LLM support (more models, better prompts)
+- Editable **Hint / Solution / Note** fields
+- Graph interactivity: click node → show related problems
+- Spaced repetition scheduler based on difficulty
+- Progress charts (error frequency over time)
 
-```json
-{
-  "v": 2,
-  "exportedAt": "2025-09-05T12:34:56.000Z",
-  "items": [
-    {
-      "id": "uuid",
-      "title": "Clan Size",
-      "category": "Math",
-      "difficulty": "Deadly",
-      "mastery": "A bit",
-      "tags": ["dp","expected value"],
-      "hint": "…",
-      "solution": "…",
-      "images": [{ "name": "img1", "dataUrl": "data:image/png;base64,..." }],
-      "comments": [{ "ts": 1711111111111, "text": "watch edge case" }],
-      "sessions": [{ "start": 1711111111111, "end": 1711111211111, "durationSec": 100 }],
-      "createdAt": 1711111111111,
-      "updatedAt": 1711111211111
-    }
-  ]
+---
+
+## 🤝 Contributing
+Contributions, issues, and feature requests are welcome!
+- Fork and make a PR.
+- Open issues for ideas/bugs.
+- Suggestions for heuristics, prompts, or visualization especially appreciated.
+
+---
+
+## 📚 Citation
+If you use this project, please cite:
+
+**APA:**  
+Wang, Y. (2025). *Wrongbook Suite: Local-first mistake notebooks for quant prep and AI error analysis*. GitHub. https://github.com/yw562/qr-wrongbook
+
+**BibTeX:**
+```bibtex
+@misc{wang2025wrongbook,
+  author       = {Yueyi Wang},
+  title        = {Wrongbook Suite: Local-first mistake notebooks for quant prep and AI error analysis},
+  year         = {2025},
+  howpublished = {GitHub},
+  url          = {https://github.com/yw562/qr-wrongbook}
 }
 ```
 
 ---
 
-## 5. Browser support & privacy
+## 📜 License
+Released under **CC BY-NC 4.0**:
+- **Share** — copy & redistribute the material
+- **Adapt** — remix, transform, build upon it
+- **Attribution** — give credit
+- **NonCommercial** — no commercial use without permission
 
-* Works in latest **Chrome / Edge / Firefox / Safari** (desktop preferred)
-* Privacy: **no backend, no tracking, no third-party code**
-* To clear all data: browser settings → privacy → clear site data / IndexedDB
-
----
-
-## 6. FAQ
-
-**Q: Import doesn’t work?**
-
-* Make sure you’re importing the exported JSON.
-* Check DevTools Console for error messages.
-* Worst case: export your current data, clear site data, then re-import.
-
-**Q: Images too small?**
-
-* Click to open viewer → zoom with mouse wheel → drag to pan.
-
-**Q: Comments won’t delete?**
-
-* Each comment has a ✕ button. Deletion asks for confirmation.
-
-**Q: Export file is huge?**
-
-* Screenshots are base64-encoded. Consider removing unnecessary images before exporting.
-
----
-
-## 7. Customization
-
-Want a different header gradient? Edit in `index.html`:
-
-```css
-header {
-  background: linear-gradient(
-    90deg,
-    rgba(165,216,255,0.92) 0%,
-    rgba(153,246,228,0.92) 50%,
-    rgba(185,251,192,0.92) 100%
-  );
-}
-```
-
-Lower the `0.92` to `0.88` for more transparency.
-Themes live in `:root` variables.
-
----
-
-## 8. Contributing
-
-PRs and issues welcome! Ideas include:
-
-* Spaced repetition scheduler
-* Keyboard shortcuts
-* Additional charting
-* UI polish (keeping the single-file, offline-only spirit)
-
----
-
-## 9. License
-
-MIT License — free to use, share, hack on.
-
----
-
-## 10. Project structure
-
-```
-.
-├─ index.html      # Entire app in one file
-└─ README.md       # This documentation
-```
-
----
-
-✨ Simple by design: just two files. Clone, open, start practicing.
+For commercial use, please contact the author.
